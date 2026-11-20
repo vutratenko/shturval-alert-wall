@@ -1,0 +1,11 @@
+[
+  {
+    "fingerprint": "demo-warn-1",
+    "alertname": "KubePodCrashLooping",
+    "severity": "warning",
+    "namespace": "orders",
+    "cluster": "demo",
+    "summary": "Pod crash loop in orders",
+    "startsAt": "2026-03-20T10:00:00Z"
+  }
+]

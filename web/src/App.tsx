@@ -1,0 +1,71 @@
+import { useEffect, useRef, useState } from 'react';
+import { AlertDrawer } from './components/AlertDrawer';
+import { EventFeed } from './components/EventFeed';
+import { Fox } from './components/Fox';
+import { TileGrid } from './components/TileGrid';
+import { nextMood, type HysteresisState } from './moodHysteresis';
+import type { ClusterSummary, Mood } from './types';
+import { useAlertStream } from './useAlertStream';
+
+function useWallScale(ref: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      const sx = window.innerWidth / 1920;
+      const sy = window.innerHeight / 1080;
+      el.style.transform = `scale(${Math.min(sx, sy)})`;
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [ref]);
+}
+
+function useFoxMood(raw: Mood | undefined): Mood {
+  const [state, setState] = useState<HysteresisState>({ displayed: 'calm' });
+  useEffect(() => {
+    if (!raw) return;
+    const id = window.setInterval(() => {
+      setState((s) => nextMood(s, raw, Date.now()));
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [raw]);
+  return state.displayed;
+}
+
+export function App() {
+  const stageRef = useRef<HTMLDivElement>(null);
+  useWallScale(stageRef);
+  const { snapshot, events, live } = useAlertStream();
+  const [selected, setSelected] = useState<ClusterSummary | null>(null);
+  const foxMood = useFoxMood(snapshot?.mood);
+
+  const timeLabel = snapshot?.generatedAt
+    ? new Date(snapshot.generatedAt).toLocaleTimeString('ru-RU')
+    : '—';
+
+  return (
+    <div className="wall-fit">
+      <div ref={stageRef} className="wall-stage">
+        <header className="wall-header">
+          <div className="wall-brand">
+            <img src="/assets/shturval-sign.svg" alt="" width={56} height={56} />
+            <span className="wall-title">Пульт алертов</span>
+          </div>
+          <div className={`wall-live${live ? '' : ' offline'}`}>
+            <span className="dot" />
+            <span className="mono">{live ? 'live' : 'offline'}</span>
+            <span className="mono">{timeLabel}</span>
+          </div>
+        </header>
+        <main className="wall-main">
+          <TileGrid clusters={snapshot?.clusters ?? []} onSelect={setSelected} />
+          <EventFeed events={events} />
+        </main>
+        <Fox mood={foxMood} />
+        <AlertDrawer cluster={selected} onClose={() => setSelected(null)} />
+      </div>
+    </div>
+  );
+}

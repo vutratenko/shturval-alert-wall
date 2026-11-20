@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "alertwall.name" . }}
+  namespace: {{ include "alertwall.namespace" . }}
+---
+{{- if .Values.rbac.clusterRole }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "alertwall.name" . }}-{{ .Release.Namespace }}
+rules:
+  - apiGroups: [operator.victoriametrics.com]
+    resources: [vmalertmanagers]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "alertwall.name" . }}-{{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "alertwall.name" . }}-{{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "alertwall.name" . }}
+    namespace: {{ include "alertwall.namespace" . }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "alertwall.name" . }}
+  namespace: {{ include "alertwall.namespace" . }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "alertwall.name" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "alertwall.name" . }}
+    spec:
+      serviceAccountName: {{ include "alertwall.name" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SOURCE_MODE
+              value: {{ .Values.sources.mode | quote }}
+            - name: VMSELECT_URL
+              value: {{ .Values.sources.vmselectUrl | quote }}
+            - name: POLL_INTERVAL
+              value: {{ .Values.pollInterval | quote }}
+            - name: POLL_TIMEOUT
+              value: {{ .Values.pollTimeout | quote }}
+            - name: DISCOVERY_INTERVAL
+              value: {{ .Values.discoveryInterval | quote }}
+            - name: DISCOVERY_ENABLED
+              value: {{ .Values.sources.discoveryEnabled | quote }}
+            - name: MOOD_MAX_WARNING_CALM
+              value: {{ .Values.mood.maxWarningCalm | quote }}
+            - name: MOOD_MIN_CRITICAL_PANIC
+              value: {{ .Values.mood.minCriticalPanic | quote }}
+            - name: MOOD_MIN_WARNING_PANIC
+              value: {{ .Values.mood.minWarningPanic | quote }}
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: [ALL]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "alertwall.name" . }}
+  namespace: {{ include "alertwall.namespace" . }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "alertwall.name" . }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http

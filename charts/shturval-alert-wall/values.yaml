@@ -1,0 +1,34 @@
+image:
+  repository: registry.sion2k.ru/shturval/shturval-alert-wall
+  tag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+namespaceOverride: ""
+replicas: 1
+service:
+  type: ClusterIP
+  port: 8080
+ingress:
+  enabled: false
+  className: ""
+  hosts:
+    - host: alerts.local
+      paths: [{ path: /, pathType: Prefix }]
+gateway:
+  enabled: false
+  parentRefs: []
+  hostnames: []
+sources:
+  mode: alertmanager
+  static: []
+  vmselectUrl: ""
+  discoveryEnabled: "true"
+pollInterval: 10s
+pollTimeout: 5s
+discoveryInterval: 60s
+mood:
+  maxWarningCalm: 2
+  minCriticalPanic: 2
+  minWarningPanic: 10
+rbac:
+  clusterRole: true

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shturval-alert-wall
+description: Live multi-cluster Shturval alert wall
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

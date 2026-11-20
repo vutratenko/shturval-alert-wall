@@ -11,6 +11,8 @@ export type Alert = {
   summary?: string;
   description?: string;
   runbookUrl?: string;
+  generatorUrl?: string;
+  labels?: Record<string, string>;
   startsAt: string;
 };
 

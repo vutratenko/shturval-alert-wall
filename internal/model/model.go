@@ -14,15 +14,17 @@ const (
 )
 
 type Alert struct {
-	Fingerprint string    `json:"fingerprint"`
-	Alertname   string    `json:"alertname"`
-	Severity    Bucket    `json:"severity"`
-	Namespace   string    `json:"namespace,omitempty"`
-	Cluster     string    `json:"cluster,omitempty"`
-	Summary     string    `json:"summary,omitempty"`
-	Description string    `json:"description,omitempty"`
-	RunbookURL  string    `json:"runbookUrl,omitempty"`
-	StartsAt    time.Time `json:"startsAt"`
+	Fingerprint  string            `json:"fingerprint"`
+	Alertname    string            `json:"alertname"`
+	Severity     Bucket            `json:"severity"`
+	Namespace    string            `json:"namespace,omitempty"`
+	Cluster      string            `json:"cluster,omitempty"`
+	Summary      string            `json:"summary,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	RunbookURL   string            `json:"runbookUrl,omitempty"`
+	GeneratorURL string            `json:"generatorUrl,omitempty"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	StartsAt     time.Time         `json:"startsAt"`
 }
 
 type Counts struct {

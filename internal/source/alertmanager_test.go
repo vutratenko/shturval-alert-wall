@@ -17,10 +17,11 @@ func TestAlertmanager_Fetch(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{
-				"fingerprint": "fp1",
-				"labels":      map[string]string{"alertname": "KubePodCrashLooping", "severity": "warning", "namespace": "orders"},
-				"annotations": map[string]string{"summary": "pod down"},
-				"startsAt":    time.Now().UTC().Format(time.RFC3339Nano),
+				"fingerprint":  "fp1",
+				"labels":       map[string]string{"alertname": "KubePodCrashLooping", "severity": "warning", "namespace": "orders", "pod": "api-7f9c"},
+				"annotations":  map[string]string{"summary": "pod down"},
+				"generatorURL": "http://prometheus/graph?g0.expr=up",
+				"startsAt":     time.Now().UTC().Format(time.RFC3339Nano),
 			},
 		})
 	}))
@@ -32,6 +33,12 @@ func TestAlertmanager_Fetch(t *testing.T) {
 	}
 	if len(alerts) != 1 || alerts[0].Alertname != "KubePodCrashLooping" {
 		t.Fatalf("%+v", alerts)
+	}
+	if alerts[0].Labels["pod"] != "api-7f9c" {
+		t.Fatalf("labels: %+v", alerts[0].Labels)
+	}
+	if alerts[0].GeneratorURL != "http://prometheus/graph?g0.expr=up" {
+		t.Fatalf("generator: %q", alerts[0].GeneratorURL)
 	}
 }
 

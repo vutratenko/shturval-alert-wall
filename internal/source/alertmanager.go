@@ -21,10 +21,11 @@ type Alertmanager struct {
 func (a *Alertmanager) Cluster() string { return a.ClusterName }
 
 type amAlert struct {
-	Fingerprint string            `json:"fingerprint"`
-	Labels      map[string]string `json:"labels"`
-	Annotations map[string]string `json:"annotations"`
-	StartsAt    time.Time         `json:"startsAt"`
+	Fingerprint  string            `json:"fingerprint"`
+	Labels       map[string]string `json:"labels"`
+	Annotations  map[string]string `json:"annotations"`
+	StartsAt     time.Time         `json:"startsAt"`
+	GeneratorURL string            `json:"generatorURL"`
 }
 
 func (a *Alertmanager) Fetch(ctx context.Context) ([]model.Alert, error) {
@@ -78,16 +79,29 @@ func mapAMAlert(cluster string, r amAlert) model.Alert {
 		cluster = c
 	}
 	return model.Alert{
-		Fingerprint: r.Fingerprint,
-		Alertname:   labels["alertname"],
-		Severity:    model.NormalizeSeverity(labels["severity"]),
-		Namespace:   labels["namespace"],
-		Cluster:     cluster,
-		Summary:     firstNonEmpty(ann["summary"], labels["summary"]),
-		Description: firstNonEmpty(ann["description"], labels["description"]),
-		RunbookURL:  firstNonEmpty(ann["runbook_url"], labels["runbook_url"]),
-		StartsAt:    r.StartsAt,
+		Fingerprint:  r.Fingerprint,
+		Alertname:    labels["alertname"],
+		Severity:     model.NormalizeSeverity(labels["severity"]),
+		Namespace:    labels["namespace"],
+		Cluster:      cluster,
+		Summary:      firstNonEmpty(ann["summary"], labels["summary"]),
+		Description:  firstNonEmpty(ann["description"], labels["description"]),
+		RunbookURL:   firstNonEmpty(ann["runbook_url"], labels["runbook_url"]),
+		GeneratorURL: r.GeneratorURL,
+		Labels:       copyStringMap(labels),
+		StartsAt:     r.StartsAt,
 	}
+}
+
+func copyStringMap(m map[string]string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
 
 func firstNonEmpty(vals ...string) string {

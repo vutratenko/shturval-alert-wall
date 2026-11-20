@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertDrawer } from './components/AlertDrawer';
+import { ClusterAlertBoard } from './components/ClusterAlertBoard';
 import { EventFeed } from './components/EventFeed';
 import { Fox } from './components/Fox';
 import { TileGrid } from './components/TileGrid';
@@ -50,8 +50,11 @@ export function App() {
       <div ref={stageRef} className="wall-stage">
         <header className="wall-header">
           <div className="wall-brand">
-            <img src="/assets/shturval-sign.svg" alt="" width={56} height={56} />
-            <span className="wall-title">Пульт алертов</span>
+            <img src="/assets/shturval-horizontal-on-dark.svg" alt="Штурвал" className="logo-wide" />
+            <span className="eyebrow">
+              <span className="n">ops</span>
+              Пульт алертов
+            </span>
           </div>
           <div className={`wall-live${live ? '' : ' offline'}`}>
             <span className="dot" />
@@ -60,11 +63,13 @@ export function App() {
           </div>
         </header>
         <main className="wall-main">
-          <TileGrid clusters={snapshot?.clusters ?? []} onSelect={setSelected} />
-          <EventFeed events={events} />
+          <Fox mood={foxMood} snapshot={snapshot} />
+          <div className="wall-data">
+            <TileGrid clusters={snapshot?.clusters ?? []} onSelect={setSelected} />
+            <EventFeed events={events} />
+          </div>
         </main>
-        <Fox mood={foxMood} />
-        <AlertDrawer cluster={selected} onClose={() => setSelected(null)} />
+        <ClusterAlertBoard cluster={selected} onClose={() => setSelected(null)} />
       </div>
     </div>
   );

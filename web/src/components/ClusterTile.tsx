@@ -11,7 +11,10 @@ export function ClusterTile({ cluster, onSelect }: Props) {
   const total = clusterTotal(cluster);
   return (
     <button type="button" className={`card cluster-tile ${tone}`} onClick={onSelect}>
-      <div className="name">{cluster.reachable ? cluster.name : `${cluster.name} · нет связи`}</div>
+      <div className="head">
+        <span className="dot" aria-hidden />
+        <div className="name">{cluster.reachable ? cluster.name : `${cluster.name} · нет связи`}</div>
+      </div>
       <div className="total">{cluster.reachable ? total : '—'}</div>
       <div className="counts">
         <span>crit {cluster.counts.critical}</span>

@@ -88,6 +88,7 @@ func (v *VMSelect) Fetch(ctx context.Context) ([]model.Alert, error) {
 			Summary:     m["summary"],
 			Description: m["description"],
 			RunbookURL:  m["runbook_url"],
+			Labels:      copyStringMap(m),
 			StartsAt:    starts,
 		})
 	}

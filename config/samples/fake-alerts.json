@@ -1,11 +1,80 @@
 [
   {
+    "fingerprint": "demo-crit-1",
+    "alertname": "KubeStatefulSetReplicasMismatch",
+    "severity": "critical",
+    "namespace": "ml",
+    "cluster": "demo",
+    "summary": "StatefulSet ml/training-worker has 1 ready replicas, wants 3",
+    "description": "StatefulSet training-worker in namespace ml has not matched the expected number of replicas for longer than 15 minutes.",
+    "runbookUrl": "https://runbooks.example/ml-statefulset",
+    "generatorUrl": "http://prometheus/graph?g0.expr=kube_statefulset",
+    "labels": {
+      "alertname": "KubeStatefulSetReplicasMismatch",
+      "severity": "critical",
+      "namespace": "ml",
+      "cluster": "demo",
+      "statefulset": "training-worker",
+      "pod": "training-worker-2",
+      "node": "worker-12",
+      "job": "kube-state-metrics"
+    },
+    "startsAt": "2026-03-20T08:12:00Z"
+  },
+  {
     "fingerprint": "demo-warn-1",
     "alertname": "KubePodCrashLooping",
     "severity": "warning",
     "namespace": "orders",
     "cluster": "demo",
-    "summary": "Pod crash loop in orders",
-    "startsAt": "2026-03-20T10:00:00Z"
+    "summary": "Pod api/checkout in orders is crash looping",
+    "description": "Container checkout in pod api/checkout has been in CrashLoopBackOff for 12 minutes.",
+    "runbookUrl": "https://runbooks.example/pod-crash",
+    "labels": {
+      "alertname": "KubePodCrashLooping",
+      "severity": "warning",
+      "namespace": "orders",
+      "cluster": "demo",
+      "pod": "api/checkout-6d8f9",
+      "container": "checkout",
+      "node": "worker-04",
+      "job": "kube-prometheus"
+    },
+    "startsAt": "2026-03-20T09:40:00Z"
+  },
+  {
+    "fingerprint": "demo-warn-2",
+    "alertname": "HighMemoryUsage",
+    "severity": "warning",
+    "namespace": "monitoring",
+    "cluster": "demo",
+    "summary": "Memory usage above 85% on node worker-07",
+    "description": "Node worker-07 memory utilization has been above 85% for 30 minutes.",
+    "labels": {
+      "alertname": "HighMemoryUsage",
+      "severity": "warning",
+      "namespace": "monitoring",
+      "cluster": "demo",
+      "node": "worker-07",
+      "instance": "10.0.12.44:9100",
+      "job": "node-exporter"
+    },
+    "startsAt": "2026-03-20T10:05:00Z"
+  },
+  {
+    "fingerprint": "staging-info-1",
+    "alertname": "InfoReplicaCount",
+    "severity": "info",
+    "namespace": "ingress",
+    "cluster": "staging",
+    "summary": "Ingress controller scaled to 2 replicas",
+    "labels": {
+      "alertname": "InfoReplicaCount",
+      "severity": "info",
+      "namespace": "ingress",
+      "cluster": "staging",
+      "deployment": "ingress-nginx"
+    },
+    "startsAt": "2026-03-20T10:30:00Z"
   }
 ]

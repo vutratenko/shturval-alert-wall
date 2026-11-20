@@ -1,5 +1,6 @@
-import type { Mood } from '../types';
+import { snapshotTotals } from '../alerts';
 import { foxQuote } from '../moodHysteresis';
+import type { Mood, Snapshot } from '../types';
 
 const assets: Record<Mood, string> = {
   calm: '/assets/fox-calm.jpg',
@@ -7,19 +8,38 @@ const assets: Record<Mood, string> = {
   panic: '/assets/fox-panic.jpg',
 };
 
-type Props = { mood: Mood };
+type Props = { mood: Mood; snapshot: Snapshot | null };
 
-export function Fox({ mood }: Props) {
+export function Fox({ mood, snapshot }: Props) {
+  const totals = snapshotTotals(snapshot);
+  const clusterN = snapshot?.clusters.length ?? 0;
+
   return (
-    <div className={`card fox-bar fox-${mood}`}>
-      <div className="fox-stage">
-        {mood === 'calm' ? <span className="steam" aria-hidden /> : null}
-        <img className="fox-img" src={assets[mood]} alt="" />
+    <div className="fox-column">
+      <div className={`fox-hero mood-${mood}`}>
+        <div className="fox-glow" aria-hidden />
+        <div className="fox-stack">
+          {(Object.keys(assets) as Mood[]).map((m) => (
+            <img key={m} className={m === mood ? 'active' : ''} src={assets[m]} alt="" />
+          ))}
+        </div>
       </div>
-      <div>
-        <p className="fox-quote">
-          <strong>Штурвал-лис:</strong> {foxQuote(mood)}
+      <div className="fox-status">
+        <h2>{foxQuote(mood)}</h2>
+        <p className="totals">
+          {clusterN > 0 ? (
+            <>
+              Горит <b>{totals.clustersFiring}</b> из <b>{clusterN}</b> кластеров
+            </>
+          ) : (
+            'Ждём данные с кластеров…'
+          )}
         </p>
+        <div className="stat-row">
+          <span className="crit">crit {totals.critical}</span>
+          <span className="warn">warn {totals.warning}</span>
+          <span className="info">info {totals.info}</span>
+        </div>
       </div>
     </div>
   );

@@ -31,8 +31,13 @@ jobs:
   image:
     needs: test
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         if: github.event_name == 'push'
@@ -56,3 +61,19 @@ jobs:
           labels: "${{ steps.meta.outputs.labels }}"
           provenance: false
           sbom: false
+      - name: Bump image tag in values-cluster.yaml
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          FILE=charts/shturval-alert-wall/values-cluster.yaml
+          sed -i "s/^  tag: .*/  tag: ${IMAGE_TAG:0:11}/" "$FILE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          if git diff --staged --quiet; then
+            echo "No tag change"
+            exit 0
+          fi
+          git commit -m "ci: bump image tag [skip ci]"
+          git push

@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shturval-alert-wall
+  namespace: shturval-cd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:vutratenko/shturval-alert-wall.git
+    targetRevision: main
+    path: charts/shturval-alert-wall
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-cluster.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: shturval-alert-wall
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

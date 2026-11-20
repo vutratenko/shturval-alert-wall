@@ -10,7 +10,12 @@ Live multi-cluster **firing** alert dashboard for Shturval (VictoriaMetrics / Al
 
 Image: `registry.sion2k.ru/shturval/shturval-alert-wall`.
 
-GitHub Actions needs `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` (same as `shturval-ctf-scoreboard`).
+## GitOps (Argo CD)
+
+- Overlay: `charts/shturval-alert-wall/values-cluster.yaml` (CI bumps `image.tag` on push to `main`).
+- Application manifest: [deploy/application.yaml](deploy/application.yaml) (project `default`, namespace `shturval-alert-wall`).
+- Private repo: deploy key + Secret `deploy/argocd-repo-secret.example.yaml` in `shturval-cd`.
+- Copy `regcred` into namespace `shturval-alert-wall` for pulls from `registry.sion2k.ru`.
 
 ## Local development
 

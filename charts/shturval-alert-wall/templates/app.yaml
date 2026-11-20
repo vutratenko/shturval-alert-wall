@@ -79,6 +79,10 @@ spec:
               value: {{ .Values.mood.minCriticalPanic | quote }}
             - name: MOOD_MIN_WARNING_PANIC
               value: {{ .Values.mood.minWarningPanic | quote }}
+            {{- if .Values.sources.static }}
+            - name: STATIC_SOURCES
+              value: {{ range $i, $s := .Values.sources.static }}{{ if $i }};{{ end }}{{ $s.cluster }}={{ $s.url }}{{ end }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /api/healthz

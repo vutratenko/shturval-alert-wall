@@ -130,6 +130,61 @@ func TestOIDCFlow_LoginCallbackAccess(t *testing.T) {
 	}
 }
 
+func TestLogin_ReusesPKCEState(t *testing.T) {
+	svc := mustTestService(t)
+	h := svc.Wrap(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+
+	first := httptest.NewRecorder()
+	h.ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/oauth2/login?rd=/wall", nil))
+	c := pkceCookieFrom(t, first)
+	state1 := stateFromRedirect(t, first)
+
+	second := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/login?rd=/wall", nil)
+	req.AddCookie(c)
+	h.ServeHTTP(second, req)
+	if stateFromRedirect(t, second) != state1 {
+		t.Fatalf("state rotated: %s vs %s", stateFromRedirect(t, second), state1)
+	}
+}
+
+func TestCallback_StateMismatchRestartsLogin(t *testing.T) {
+	svc := mustTestService(t)
+	h := svc.Wrap(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {}))
+
+	login := httptest.NewRecorder()
+	h.ServeHTTP(login, httptest.NewRequest(http.MethodGet, "/oauth2/login", nil))
+	c := pkceCookieFrom(t, login)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/callback?code=x&state=other", nil)
+	req.AddCookie(c)
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusFound || rr.Header().Get("Location") != "/oauth2/login" {
+		t.Fatalf("callback: %d %s", rr.Code, rr.Header().Get("Location"))
+	}
+}
+
+func pkceCookieFrom(t *testing.T, rr *httptest.ResponseRecorder) *http.Cookie {
+	t.Helper()
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == pkceCookie {
+			return c
+		}
+	}
+	t.Fatal("missing pkce cookie")
+	return nil
+}
+
+func stateFromRedirect(t *testing.T, rr *httptest.ResponseRecorder) string {
+	t.Helper()
+	loc, err := url.Parse(rr.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return loc.Query().Get("state")
+}
+
 func TestSessionSignParse(t *testing.T) {
 	secret := []byte("hmac-secret")
 	p := sessionPayload{Sub: "u1", Email: "a@b.c", Exp: time.Now().Add(time.Hour)}

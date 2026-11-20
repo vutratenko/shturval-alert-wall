@@ -39,12 +39,16 @@ export function useAlertStream() {
     es.addEventListener('alert.resolved', onEvent as EventListener);
     es.addEventListener('cluster.down', onEvent as EventListener);
     es.addEventListener('cluster.up', onEvent as EventListener);
+    let loginStarted = false;
     es.onerror = () => {
       setLive(false);
+      if (loginStarted) return;
       void (async () => {
         try {
           const res = await fetch('/api/snapshot', { credentials: 'same-origin' });
-          if (res.status === 401) {
+          if (res.status === 401 && !loginStarted) {
+            loginStarted = true;
+            es.close();
             const rd = window.location.pathname + window.location.search;
             window.location.assign(`/oauth2/login?rd=${encodeURIComponent(rd)}`);
           }

@@ -110,44 +110,39 @@ type pkcePayload struct {
 }
 
 func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
-	verifier := oauth2.GenerateVerifier()
-	state, _ := randToken()
 	rd := r.URL.Query().Get("rd")
 	if rd == "" {
 		rd = "/wall"
 	}
-	payload, _ := json.Marshal(pkcePayload{State: state, Verifier: verifier, RD: rd})
-	http.SetCookie(w, &http.Cookie{
-		Name:     pkceCookie,
-		Value:    base64.RawURLEncoding.EncodeToString(payload),
-		Path:     "/",
-		MaxAge:   600,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		Secure:   r.TLS != nil || isHTTPS(r),
-	})
-	url := s.oauth2.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(verifier))
-	http.Redirect(w, r, url, http.StatusFound)
+	// A second login while the IdP redirect is in flight must not rotate state:
+	// the callback still carries the first state, and a new cookie is a mismatch.
+	if pkce, ok := pkceFromRequest(r); ok {
+		pkce.RD = rd
+		setPKCECookie(w, r, pkce)
+		s.redirectToProvider(w, r, pkce)
+		return
+	}
+	verifier := oauth2.GenerateVerifier()
+	state, _ := randToken()
+	pkce := pkcePayload{State: state, Verifier: verifier, RD: rd}
+	setPKCECookie(w, r, pkce)
+	s.redirectToProvider(w, r, pkce)
+}
+
+func (s *Service) redirectToProvider(w http.ResponseWriter, r *http.Request, pkce pkcePayload) {
+	authURL := s.oauth2.AuthCodeURL(pkce.State, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(pkce.Verifier))
+	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
 func (s *Service) handleCallback(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie(pkceCookie)
-	if err != nil {
+	pkce, ok := pkceFromRequest(r)
+	if !ok {
 		http.Error(w, "missing pkce cookie", http.StatusBadRequest)
 		return
 	}
-	raw, err := base64.RawURLEncoding.DecodeString(c.Value)
-	if err != nil {
-		http.Error(w, "bad pkce cookie", http.StatusBadRequest)
-		return
-	}
-	var pkce pkcePayload
-	if err := json.Unmarshal(raw, &pkce); err != nil {
-		http.Error(w, "bad pkce payload", http.StatusBadRequest)
-		return
-	}
 	if r.URL.Query().Get("state") != pkce.State {
-		http.Error(w, "state mismatch", http.StatusBadRequest)
+		clearPKCECookie(w, r)
+		http.Redirect(w, r, "/oauth2/login", http.StatusFound)
 		return
 	}
 	exCtx := r.Context()
@@ -195,7 +190,49 @@ func (s *Service) handleCallback(w http.ResponseWriter, r *http.Request) {
 	if rd == "" {
 		rd = "/wall"
 	}
+	clearPKCECookie(w, r)
 	http.Redirect(w, r, rd, http.StatusFound)
+}
+
+func pkceFromRequest(r *http.Request) (pkcePayload, bool) {
+	c, err := r.Cookie(pkceCookie)
+	if err != nil || c.Value == "" {
+		return pkcePayload{}, false
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(c.Value)
+	if err != nil {
+		return pkcePayload{}, false
+	}
+	var pkce pkcePayload
+	if err := json.Unmarshal(raw, &pkce); err != nil || pkce.State == "" || pkce.Verifier == "" {
+		return pkcePayload{}, false
+	}
+	return pkce, true
+}
+
+func setPKCECookie(w http.ResponseWriter, r *http.Request, pkce pkcePayload) {
+	payload, _ := json.Marshal(pkce)
+	http.SetCookie(w, &http.Cookie{
+		Name:     pkceCookie,
+		Value:    base64.RawURLEncoding.EncodeToString(payload),
+		Path:     "/",
+		MaxAge:   600,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   r.TLS != nil || isHTTPS(r),
+	})
+}
+
+func clearPKCECookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     pkceCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   r.TLS != nil || isHTTPS(r),
+	})
 }
 
 func (s *Service) handleLogout(w http.ResponseWriter, r *http.Request) {

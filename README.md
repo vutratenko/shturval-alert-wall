@@ -15,7 +15,7 @@ Image: `registry.sion2k.ru/shturval/shturval-alert-wall`.
 - Overlay: `charts/shturval-alert-wall/values-cluster.yaml` (CI bumps `image.tag` on push to `main`).
 - Application manifest: [deploy/application.yaml](deploy/application.yaml) (project `default`, namespace `shturval-alert-wall`).
 - Private repo: deploy key + Secret `deploy/argocd-repo-secret.example.yaml` in `shturval-cd`.
-- Copy `regcred` into namespace `shturval-alert-wall` for pulls from `registry.sion2k.ru`.
+- Copy registry pull secret into `shturval-alert-wall` as `regcred` (e.g. clone `registry-shturval-pull` from `shturval-ctf`).
 
 ## Local development
 

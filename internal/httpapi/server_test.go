@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bufio"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,31 +20,30 @@ func TestStream_sendsSnapshot(t *testing.T) {
 		Mood:        model.MoodCalm,
 		Clusters:    []model.ClusterSummary{},
 	})
-	srv := &Server{Hub: hub}
-	ctx, cancel := context.WithCancel(context.Background())
-	req := httptest.NewRequest(http.MethodGet, "/api/stream", nil).WithContext(ctx)
-	rec := httptest.NewRecorder()
+	srv := httptest.NewServer((&Server{Hub: hub}).Handler())
+	t.Cleanup(srv.Close)
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		srv.stream(rec, req)
-	}()
-
-	deadline := time.After(2 * time.Second)
-	for {
-		select {
-		case <-deadline:
-			cancel()
-			t.Fatal("timeout")
-		default:
-			if strings.Contains(rec.Body.String(), "event: snapshot") {
-				cancel()
-				<-done
-				return
-			}
-			time.Sleep(10 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/stream", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	sc := bufio.NewScanner(resp.Body)
+	var found bool
+	for sc.Scan() {
+		if strings.HasPrefix(sc.Text(), "event: snapshot") {
+			found = true
+			break
 		}
+	}
+	if !found {
+		t.Fatal("no snapshot event")
 	}
 }
 
@@ -61,11 +61,11 @@ func TestSnapshotJSON(t *testing.T) {
 	srv := &Server{Hub: hub}
 	rec := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/snapshot", nil))
-	sc := bufio.NewScanner(strings.NewReader(rec.Body.String()))
-	if !sc.Scan() {
-		t.Fatal("empty body")
+	body, err := io.ReadAll(rec.Body)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(sc.Text(), `"mood"`) {
-		t.Fatal(rec.Body.String())
+	if !strings.Contains(string(body), `"mood"`) {
+		t.Fatal(string(body))
 	}
 }

@@ -10,6 +10,8 @@ Live multi-cluster **firing** alert dashboard for Shturval (VictoriaMetrics / Al
 
 Image: `registry.sion2k.ru/shturval/shturval-alert-wall`.
 
+GitHub Actions needs `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` (same as `shturval-ctf-scoreboard`).
+
 ## Local development
 
 Requires Go 1.24+, Node 22+.

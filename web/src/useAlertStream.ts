@@ -39,9 +39,22 @@ export function useAlertStream() {
     es.addEventListener('alert.resolved', onEvent as EventListener);
     es.addEventListener('cluster.down', onEvent as EventListener);
     es.addEventListener('cluster.up', onEvent as EventListener);
-    es.onerror = () => setLive(false);
+    es.onerror = () => {
+      setLive(false);
+      void (async () => {
+        try {
+          const res = await fetch('/api/snapshot', { credentials: 'same-origin' });
+          if (res.status === 401) {
+            const rd = window.location.pathname + window.location.search;
+            window.location.assign(`/oauth2/login?rd=${encodeURIComponent(rd)}`);
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    };
 
-  return () => {
+    return () => {
       es.close();
       esRef.current = null;
     };

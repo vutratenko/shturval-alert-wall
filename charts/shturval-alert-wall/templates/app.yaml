@@ -4,6 +4,46 @@ metadata:
   name: {{ include "alertwall.name" . }}
   namespace: {{ include "alertwall.namespace" . }}
 ---
+{{- if .Values.auth.enabled }}
+apiVersion: auth.shturval.tech/v1beta1
+kind: AuthOidcClient
+metadata:
+  name: {{ .Values.auth.oidcClientName }}
+  namespace: {{ include "alertwall.namespace" . }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  providerType: shturval
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "alertwall.name" . }}-oidc
+  namespace: {{ include "alertwall.namespace" . }}
+rules:
+  - apiGroups: ["auth.shturval.tech"]
+    resources: ["authoidcclients"]
+    resourceNames: [{{ .Values.auth.oidcClientName | quote }}]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "alertwall.name" . }}-oidc
+  namespace: {{ include "alertwall.namespace" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "alertwall.name" . }}
+    namespace: {{ include "alertwall.namespace" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "alertwall.name" . }}-oidc
+---
+{{- end }}
 {{- if .Values.rbac.clusterRole }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -82,6 +122,24 @@ spec:
             {{- if .Values.sources.static }}
             - name: STATIC_SOURCES
               value: {{ range $i, $s := .Values.sources.static }}{{ if $i }};{{ end }}{{ $s.cluster }}={{ $s.url }}{{ end }}
+            {{- end }}
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- if .Values.auth.enabled }}
+            - name: AUTH_ENABLED
+              value: "true"
+            - name: AUTH_REDIRECT_URL
+              value: {{ .Values.auth.redirectUrl | quote }}
+            - name: AUTH_OIDC_CLIENT_NAME
+              value: {{ .Values.auth.oidcClientName | quote }}
+            - name: AUTH_SESSION_TTL
+              value: {{ .Values.auth.sessionTtl | quote }}
+            {{- with .Values.auth.cookieSecret }}
+            - name: AUTH_COOKIE_SECRET
+              value: {{ . | quote }}
+            {{- end }}
             {{- end }}
           readinessProbe:
             httpGet:

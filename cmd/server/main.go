@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/vutratenko/shturval-alert-wall/internal/aggregate"
+	"github.com/vutratenko/shturval-alert-wall/internal/auth"
 	"github.com/vutratenko/shturval-alert-wall/internal/config"
 	"github.com/vutratenko/shturval-alert-wall/internal/discovery"
 	"github.com/vutratenko/shturval-alert-wall/internal/fake"
@@ -36,19 +37,20 @@ func main() {
 	static, _ := fs.Sub(content, "static")
 	hub := httpapi.NewHub()
 	api := &httpapi.Server{Hub: hub, Static: static}
-	srv := &http.Server{Addr: addr, Handler: api.Handler(), ReadHeaderTimeout: 5 * time.Second}
+	handler := http.Handler(api.Handler())
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	refresh := &discovery.Refreshing{Discoverer: discovery.Discoverer{Static: cfg.StaticSources}}
 	var k8s client.Reader
-	if cfg.DiscoveryEnabled && cfg.SourceMode != "fake" && cfg.SourceMode != "vmselect" {
+	needK8s := (cfg.DiscoveryEnabled && cfg.SourceMode != "fake" && cfg.SourceMode != "vmselect") || cfg.Auth.Enabled
+	if needK8s {
 		restCfg, err := rest.InClusterConfig()
 		if err != nil {
 			restCfg, err = clientcmdRestConfig()
 			if err != nil {
-				slog.Warn("k8s discovery disabled", "err", err)
+				slog.Warn("k8s client unavailable", "err", err)
 			}
 		}
 		if restCfg != nil {
@@ -61,6 +63,26 @@ func main() {
 			}
 		}
 	}
+
+	if cfg.Auth.Enabled {
+		if k8s == nil {
+			slog.Error("AUTH_ENABLED requires kubernetes client")
+			os.Exit(1)
+		}
+		if cfg.Auth.RedirectURL == "" {
+			slog.Error("AUTH_REDIRECT_URL required when auth enabled")
+			os.Exit(1)
+		}
+		authSvc, err := auth.Bootstrap(ctx, k8s, cfg.Auth.Namespace, cfg.Auth.OIDCClientName, cfg.Auth.RedirectURL, cfg.Auth.SessionTTL, cfg.Auth.CookieSecret)
+		if err != nil {
+			slog.Error("oidc bootstrap", "err", err)
+			os.Exit(1)
+		}
+		handler = authSvc.Wrap(api.Handler())
+		slog.Info("oidc auth enabled", "client", cfg.Auth.OIDCClientName)
+	}
+
+	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 
 	go runPoller(ctx, cfg, refresh, hub, k8s)
 	go func() {

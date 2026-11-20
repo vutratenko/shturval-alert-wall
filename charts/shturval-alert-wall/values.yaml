@@ -16,8 +16,18 @@ ingress:
       paths: [{ path: /, pathType: Prefix }]
 gateway:
   enabled: false
-  parentRefs: []
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: ListenerSet
+      name: sion2k-app-listeners
+      namespace: gateway-system
   hostnames: []
+auth:
+  enabled: false
+  redirectUrl: ""
+  oidcClientName: shturval-alert-wall-oidc
+  sessionTtl: 24h
+  cookieSecret: ""
 sources:
   mode: alertmanager
   static: []

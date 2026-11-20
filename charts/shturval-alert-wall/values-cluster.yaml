@@ -8,3 +8,10 @@ sources:
   discoveryEnabled: "true"
 rbac:
   clusterRole: true
+auth:
+  enabled: true
+  redirectUrl: https://alerts.sion2k-cluster.sion2k.ru/oauth2/callback
+gateway:
+  enabled: true
+  hostnames:
+    - alerts.sion2k-cluster.sion2k.ru

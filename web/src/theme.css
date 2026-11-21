@@ -100,13 +100,16 @@ button {
   transform-origin: center center;
   position: relative;
   z-index: 1;
-  padding: 72px 96px 64px;
+  padding: 72px 96px 64px 48px;
   display: grid;
+  grid-template-columns: 840px minmax(0, 1fr);
   grid-template-rows: auto auto 1fr;
-  gap: 28px;
+  column-gap: 32px;
+  row-gap: 28px;
 }
 
 .wall-header {
+  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -152,10 +155,12 @@ button {
 }
 
 .wall-main {
+  grid-column: 2;
   display: grid;
   grid-template-rows: 1fr auto;
   gap: 20px;
   min-height: 0;
+  min-width: 0;
 }
 
 .card {
@@ -196,6 +201,7 @@ button {
   opacity: 1;
 }
 .fox-status {
+  grid-column: 2;
   max-width: 640px;
 }
 .fox-status h2 {

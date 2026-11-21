@@ -8,10 +8,15 @@ const assets: Record<Mood, string> = {
   panic: '/assets/fox-panic.jpg',
 };
 
+const moods = Object.keys(assets) as Mood[];
+
 export function FoxBackdrop({ mood }: { mood: Mood }) {
   return (
     <div className="fox-backdrop" aria-hidden>
-      {(Object.keys(assets) as Mood[]).map((m) => (
+      {moods.map((m) => (
+        <div key={`glow-${m}`} className={`mood-glow ${m}${m === mood ? ' active' : ''}`} />
+      ))}
+      {moods.map((m) => (
         <img key={m} className={m === mood ? 'active' : ''} src={assets[m]} alt="" />
       ))}
     </div>

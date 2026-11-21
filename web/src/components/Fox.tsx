@@ -8,38 +8,36 @@ const assets: Record<Mood, string> = {
   panic: '/assets/fox-panic.jpg',
 };
 
-type Props = { mood: Mood; snapshot: Snapshot | null };
+export function FoxBackdrop({ mood }: { mood: Mood }) {
+  return (
+    <div className="fox-backdrop" aria-hidden>
+      {(Object.keys(assets) as Mood[]).map((m) => (
+        <img key={m} className={m === mood ? 'active' : ''} src={assets[m]} alt="" />
+      ))}
+    </div>
+  );
+}
 
-export function Fox({ mood, snapshot }: Props) {
+export function FoxStatus({ mood, snapshot }: { mood: Mood; snapshot: Snapshot | null }) {
   const totals = snapshotTotals(snapshot);
   const clusterN = snapshot?.clusters.length ?? 0;
 
   return (
-    <div className="fox-column">
-      <div className={`fox-hero mood-${mood}`}>
-        <div className="fox-glow" aria-hidden />
-        <div className="fox-stack">
-          {(Object.keys(assets) as Mood[]).map((m) => (
-            <img key={m} className={m === mood ? 'active' : ''} src={assets[m]} alt="" />
-          ))}
-        </div>
-      </div>
-      <div className="fox-status">
-        <h2>{foxQuote(mood)}</h2>
-        <p className="totals">
-          {clusterN > 0 ? (
-            <>
-              Горит <b>{totals.clustersFiring}</b> из <b>{clusterN}</b> кластеров
-            </>
-          ) : (
-            'Ждём данные с кластеров…'
-          )}
-        </p>
-        <div className="stat-row">
-          <span className="crit">crit {totals.critical}</span>
-          <span className="warn">warn {totals.warning}</span>
-          <span className="info">info {totals.info}</span>
-        </div>
+    <div className="fox-status">
+      <h2>{foxQuote(mood)}</h2>
+      <p className="totals">
+        {clusterN > 0 ? (
+          <>
+            Горит <b>{totals.clustersFiring}</b> из <b>{clusterN}</b> кластеров
+          </>
+        ) : (
+          'Ждём данные с кластеров…'
+        )}
+      </p>
+      <div className="stat-row">
+        <span className="crit">crit {totals.critical}</span>
+        <span className="warn">warn {totals.warning}</span>
+        <span className="info">info {totals.info}</span>
       </div>
     </div>
   );

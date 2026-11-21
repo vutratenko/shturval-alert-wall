@@ -97,6 +97,7 @@ button {
 .wall-stage {
   width: 1920px;
   height: 1080px;
+  flex-shrink: 0;
   transform-origin: center center;
   position: relative;
   z-index: 1;
@@ -113,12 +114,13 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 48px;
   min-height: 40px;
 }
 .wall-brand {
   display: flex;
   align-items: center;
-  gap: 160px;
+  gap: 24px;
 }
 .wall-brand .logo-wide {
   height: 34px;

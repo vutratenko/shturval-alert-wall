@@ -118,7 +118,7 @@ button {
 .wall-brand {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 64px;
 }
 .wall-brand .logo-wide {
   height: 34px;

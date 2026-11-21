@@ -1,6 +1,6 @@
 # Cluster overlay (Argo CD). image.tag is bumped by CI on push to main.
 image:
-  tag: sha-fb7a299
+  tag: sha-203b828
   pullSecrets:
     - regcred
 sources:

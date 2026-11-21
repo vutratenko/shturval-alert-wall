@@ -99,6 +99,9 @@ func spa(root fs.FS) http.Handler {
 		if strings.HasPrefix(p, "wall") {
 			r.URL.Path = "/"
 		}
+		if r.URL.Path == "/" || strings.HasSuffix(r.URL.Path, ".html") {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
 		files.ServeHTTP(w, r)
 	})
 }

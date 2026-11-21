@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/vutratenko/shturval-alert-wall/internal/model"
@@ -53,6 +54,32 @@ func TestHealthz(t *testing.T) {
 	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/healthz", nil))
 	if rec.Code != 200 {
 		t.Fatal(rec.Code)
+	}
+}
+
+func TestSPA_DocumentNoCache(t *testing.T) {
+	root := fstest.MapFS{
+		"index.html":     {Data: []byte("<!doctype html><title>wall</title>")},
+		"assets/app.css": {Data: []byte("body{}")},
+	}
+	srv := &Server{Hub: NewHub(), Static: root}
+
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/wall", nil))
+	if rec.Code != 200 {
+		t.Fatal(rec.Code)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "no-cache" {
+		t.Fatalf("document cache-control %q", cc)
+	}
+
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/assets/app.css", nil))
+	if rec.Code != 200 {
+		t.Fatal(rec.Code)
+	}
+	if cc := rec.Header().Get("Cache-Control"); cc != "" {
+		t.Fatalf("asset cache-control %q", cc)
 	}
 }
 

@@ -6,15 +6,19 @@ import { TileGrid } from './components/TileGrid';
 import { nextMood, type HysteresisState } from './moodHysteresis';
 import type { ClusterSummary, Mood } from './types';
 import { useAlertStream } from './useAlertStream';
+import { wallScaleForViewport } from './wallScale';
 
 function useWallScale(ref: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const fit = () => {
-      const sx = window.innerWidth / 1920;
-      const sy = window.innerHeight / 1080;
-      el.style.transform = `scale(${Math.min(sx, sy)})`;
+      const scale = wallScaleForViewport(window.innerWidth, window.innerHeight);
+      if (scale === null) {
+        el.style.removeProperty('transform');
+      } else {
+        el.style.transform = `scale(${scale})`;
+      }
     };
     fit();
     window.addEventListener('resize', fit);

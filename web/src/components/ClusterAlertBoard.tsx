@@ -26,6 +26,15 @@ export function ClusterAlertBoard({ cluster, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [cluster, onClose]);
 
+  useEffect(() => {
+    if (!cluster) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [cluster]);
+
   const alerts = useMemo(() => (cluster ? filterAlerts(cluster.alerts, filter) : []), [cluster, filter]);
 
   if (!cluster) return null;

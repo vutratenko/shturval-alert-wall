@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { snapshotFromFrame } from './snapshotFrame';
 import type { Snapshot, StreamEvent } from './types';
 
 export function useAlertStream() {
@@ -14,12 +15,8 @@ export function useAlertStream() {
     const onSnapshot = (ev: MessageEvent) => {
       setLive(true);
       try {
-        const data = JSON.parse(ev.data) as Snapshot & StreamEvent;
-        if (Array.isArray(data.clusters)) {
-          setSnapshot(data as Snapshot);
-        } else if (data.snap) {
-          setSnapshot(data.snap);
-        }
+        const next = snapshotFromFrame(JSON.parse(ev.data));
+        if (next) setSnapshot(next);
       } catch {
         /* ignore */
       }

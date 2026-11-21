@@ -37,7 +37,7 @@ type Config struct {
 func Load() Config {
 	cfg := Config{
 		HTTPBind:         env("HTTP_BIND_ADDRESS", ":8080"),
-		PollInterval:     durationEnv("POLL_INTERVAL", 10*time.Second),
+		PollInterval:     durationEnv("POLL_INTERVAL", time.Second),
 		SourceMode:       strings.ToLower(env("SOURCE_MODE", "alertmanager")),
 		VMSelectURL:      env("VMSELECT_URL", ""),
 		FakeAlertsPath:   env("FAKE_ALERTS_PATH", ""),

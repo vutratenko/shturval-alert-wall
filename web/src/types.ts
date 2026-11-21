@@ -36,5 +36,5 @@ export type StreamEvent = {
   cluster?: string;
   alert?: Alert;
   at?: string;
-  snap?: Snapshot;
+  snapshot?: Snapshot;
 };

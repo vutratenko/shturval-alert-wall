@@ -36,7 +36,7 @@ sources:
   #     url: http://vmalertmanager-shturval-metrics-collector.victoria-metrics.svc:9093
   vmselectUrl: ""
   discoveryEnabled: "true"
-pollInterval: 10s
+pollInterval: 1s
 pollTimeout: 5s
 discoveryInterval: 60s
 mood:

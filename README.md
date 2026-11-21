@@ -44,7 +44,7 @@ Open [http://localhost:8080/wall](http://localhost:8080/wall).
 | `SOURCE_MODE` | `alertmanager` | `alertmanager`, `vmselect`, or `fake` |
 | `VMSELECT_URL` | | Required for `vmselect` mode |
 | `STATIC_SOURCES` | | `cluster1=http://...;cluster2=http://...` |
-| `POLL_INTERVAL` | `10s` | Poll period |
+| `POLL_INTERVAL` | `1s` | Poll period |
 | `FAKE_ALERTS_PATH` | | JSON file for `fake` mode |
 
 ## Helm

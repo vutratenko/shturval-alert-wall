@@ -45,3 +45,10 @@ mood:
   minWarningPanic: 10
 rbac:
   clusterRole: true
+# Web Push subscriptions and VAPID keys. Keep replicas at 1: the volume is ReadWriteOnce.
+push:
+  subject: mailto:alerts@sion2k.ru
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""

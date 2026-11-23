@@ -85,7 +85,8 @@ func (s *Service) middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if _, err := s.sessionFromRequest(r); err != nil {
+		sess, err := s.sessionFromRequest(r)
+		if err != nil {
 			if isAPIPath(r.URL.Path) {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
@@ -97,7 +98,7 @@ func (s *Service) middleware(next http.Handler) http.Handler {
 			http.Redirect(w, r, "/oauth2/login?rd="+url.QueryEscape(rd), http.StatusFound)
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(WithSession(r.Context(), sess.Sub, sess.Email)))
 	})
 }
 

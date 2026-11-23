@@ -93,6 +93,10 @@ spec:
         - name: {{ . }}
         {{- end }}
       {{- end }}
+      {{- if .Values.push.persistence.enabled }}
+      securityContext:
+        fsGroup: 65532
+      {{- end }}
       containers:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -141,6 +145,17 @@ spec:
               value: {{ . | quote }}
             {{- end }}
             {{- end }}
+            - name: PUSH_SUBJECT
+              value: {{ .Values.push.subject | quote }}
+            {{- if .Values.push.persistence.enabled }}
+            - name: PUSH_STORE_PATH
+              value: /data
+            {{- end }}
+          {{- if .Values.push.persistence.enabled }}
+          volumeMounts:
+            - name: push-data
+              mountPath: /data
+          {{- end }}
           readinessProbe:
             httpGet:
               path: /api/healthz
@@ -157,7 +172,30 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop: [ALL]
+      {{- if .Values.push.persistence.enabled }}
+      volumes:
+        - name: push-data
+          persistentVolumeClaim:
+            claimName: {{ include "alertwall.name" . }}-push
+      {{- end }}
 ---
+{{- if .Values.push.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "alertwall.name" . }}-push
+  namespace: {{ include "alertwall.namespace" . }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.push.persistence.size }}
+  {{- with .Values.push.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:

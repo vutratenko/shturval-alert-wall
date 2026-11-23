@@ -15,3 +15,6 @@ gateway:
   enabled: true
   hostnames:
     - alerts.sion2k-cluster.sion2k.ru
+push:
+  persistence:
+    enabled: true

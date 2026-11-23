@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ClusterAlertBoard } from './components/ClusterAlertBoard';
 import { EventFeed } from './components/EventFeed';
 import { FoxBackdrop, FoxStatus } from './components/Fox';
+import { PushToggle } from './components/PushToggle';
 import { TileGrid } from './components/TileGrid';
 import { nextMood, type HysteresisState } from './moodHysteresis';
 import type { ClusterSummary, Mood } from './types';
@@ -59,6 +60,7 @@ export function App() {
             <span className="eyebrow">Алерты</span>
           </div>
           <div className={`wall-live${live ? '' : ' offline'}`}>
+            <PushToggle />
             <span className="dot" />
             <span className="mono">{live ? 'live' : 'offline'}</span>
             <span className="mono">{timeLabel}</span>

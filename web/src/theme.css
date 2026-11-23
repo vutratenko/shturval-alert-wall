@@ -153,6 +153,21 @@ button {
   background: var(--warn);
   box-shadow: 0 0 12px var(--warn);
 }
+.wall-push {
+  font-family: var(--f-mono);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0;
+}
+.wall-push.on {
+  color: var(--shturval);
+}
+.wall-push:disabled {
+  cursor: default;
+  color: var(--guide);
+}
 
 .wall-main {
   grid-column: 2;

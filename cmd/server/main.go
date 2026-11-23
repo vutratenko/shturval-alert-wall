@@ -19,6 +19,7 @@ import (
 	"github.com/vutratenko/shturval-alert-wall/internal/fake"
 	"github.com/vutratenko/shturval-alert-wall/internal/httpapi"
 	"github.com/vutratenko/shturval-alert-wall/internal/metrics"
+	"github.com/vutratenko/shturval-alert-wall/internal/push"
 	"github.com/vutratenko/shturval-alert-wall/internal/source"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -36,7 +37,20 @@ func main() {
 
 	static, _ := fs.Sub(content, "static")
 	hub := httpapi.NewHub()
-	api := &httpapi.Server{Hub: hub, Static: static}
+	pushStore, err := push.Open(cfg.PushStorePath)
+	if err != nil {
+		slog.Error("push store", "err", err)
+		os.Exit(1)
+	}
+	api := &httpapi.Server{Hub: hub, Static: static, Push: pushStore}
+	dispatcher := &push.Dispatcher{
+		Store: pushStore,
+		Send: (&push.WebSender{
+			PublicKey:  pushStore.PublicKey(),
+			PrivateKey: pushStore.PrivateKey(),
+			Subject:    cfg.PushSubject,
+		}).Send,
+	}
 	handler := http.Handler(api.Handler())
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -84,7 +98,7 @@ func main() {
 
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 
-	go runPoller(ctx, cfg, refresh, hub, k8s)
+	go runPoller(ctx, cfg, refresh, hub, dispatcher)
 	go func() {
 		slog.Info("listening", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -98,7 +112,7 @@ func main() {
 	_ = srv.Shutdown(shutdown)
 }
 
-func runPoller(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub, _ client.Reader) {
+func runPoller(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub, alerts *push.Dispatcher) {
 	_ = refreshSources(ctx, cfg, refresh)
 	if cfg.DiscoveryEnabled {
 		go func() {
@@ -116,13 +130,13 @@ func runPoller(ctx context.Context, cfg config.Config, refresh *discovery.Refres
 	}
 	t := time.NewTicker(cfg.PollInterval)
 	defer t.Stop()
-	pollOnce(ctx, cfg, refresh, hub)
+	pollOnce(ctx, cfg, refresh, hub, alerts)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			pollOnce(ctx, cfg, refresh, hub)
+			pollOnce(ctx, cfg, refresh, hub, alerts)
 		}
 	}
 }
@@ -134,7 +148,7 @@ func refreshSources(ctx context.Context, cfg config.Config, refresh *discovery.R
 	return refresh.Refresh(ctx)
 }
 
-func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub) {
+func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub, alerts *push.Dispatcher) {
 	start := time.Now()
 	sources := buildSources(cfg, refresh)
 	if len(sources) == 0 {
@@ -150,7 +164,10 @@ func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refresh
 		metrics.SourceUp.WithLabelValues(f.Name).Set(v)
 	}
 	snap := aggregate.Build(fetches, time.Now().UTC(), cfg.Mood)
-	hub.Update(snap)
+	events := hub.Update(snap)
+	if alerts != nil {
+		go alerts.Notify(ctx, events)
+	}
 	metrics.PollDuration.Observe(time.Since(start).Seconds())
 }
 

@@ -18,6 +18,14 @@ jobs:
         working-directory: web
       - run: npm run build
         working-directory: web
+      - name: Check PWA build artifacts
+        run: |
+          test -s cmd/server/static/manifest.webmanifest
+          test -s cmd/server/static/sw.js
+          test -s cmd/server/static/icons/icon-192.png
+          test -s cmd/server/static/icons/icon-512.png
+          grep -q '"start_url"' cmd/server/static/manifest.webmanifest
+          grep -q 'shturval-alerts' cmd/server/static/sw.js
       - run: go test -race ./...
       - run: go vet ./...
   helm:

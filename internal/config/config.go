@@ -32,6 +32,8 @@ type Config struct {
 	PollTimeout      time.Duration
 	DiscoveryEnabled bool
 	Auth             AuthConfig
+	PushStorePath    string
+	PushSubject      string
 }
 
 func Load() Config {
@@ -52,6 +54,8 @@ func Load() Config {
 			Namespace:      env("POD_NAMESPACE", "shturval-alert-wall"),
 			SessionTTL:     durationEnv("AUTH_SESSION_TTL", 24*time.Hour),
 		},
+		PushStorePath: env("PUSH_STORE_PATH", ""),
+		PushSubject:   env("PUSH_SUBJECT", "mailto:alerts@sion2k.ru"),
 	}
 	if b64 := env("AUTH_COOKIE_SECRET", ""); b64 != "" {
 		if b, err := base64.StdEncoding.DecodeString(b64); err == nil {

@@ -46,6 +46,8 @@ Open [http://localhost:8080/wall](http://localhost:8080/wall).
 | `STATIC_SOURCES` | | `cluster1=http://...;cluster2=http://...` |
 | `POLL_INTERVAL` | `1s` | Poll period |
 | `FAKE_ALERTS_PATH` | | JSON file for `fake` mode |
+| `PUSH_STORE_PATH` | | Directory for VAPID keys and device subscriptions. Empty keeps them in memory |
+| `PUSH_SUBJECT` | `mailto:alerts@sion2k.ru` | Contact URI sent in the VAPID token |
 
 ## Helm
 
@@ -65,3 +67,11 @@ MODE=local ./scripts/smoke-test.sh
 ## UI
 
 Design tokens from Shturval ML webinar deck (Montserrat, `#1cf2de`, glass cards). Fox mascot states: calm / worried / panic driven by aggregate alert counts.
+
+## PWA and Web Push
+
+The wall is an installable PWA. Open [https://alerts.sion2k-cluster.sion2k.ru/wall](https://alerts.sion2k-cluster.sion2k.ru/wall) over HTTPS (`localhost` is enough for a local check). The installed app caches the UI shell only. Alert data still comes from the live SSE stream, and an offline reload shows an empty wall with the offline badge.
+
+The header toggle enables Web Push for this browser only. Turning it on asks for notification permission and registers this device. Turning it off unsubscribes this device and leaves every other device as it was. A tap on a notification opens `/wall`. On iPhone, push works after the PWA is added to the Home Screen (iOS 16.4+).
+
+`npm run build` emits the manifest and service worker. CI checks those files, and the image build runs the same command, so a push to `main` ships them inside the image. Argo CD rolls that image out as before. Subscriptions and the VAPID key pair live on a ReadWriteOnce PVC (`push.persistence` in the cluster values, mounted at `/data`) so a new image tag does not drop devices. Keep `replicas: 1` while that volume is in use.

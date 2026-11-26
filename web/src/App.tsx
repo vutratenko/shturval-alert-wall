@@ -4,8 +4,6 @@ import { EventFeed } from './components/EventFeed';
 import { FoxBackdrop, FoxStatus } from './components/Fox';
 import { PushToggle } from './components/PushToggle';
 import { TileGrid } from './components/TileGrid';
-import { nextMood, type HysteresisState } from './moodHysteresis';
-import type { Mood } from './types';
 import { useAlertStream } from './useAlertStream';
 import { wallScaleForViewport } from './wallScale';
 
@@ -27,24 +25,12 @@ function useWallScale(ref: React.RefObject<HTMLDivElement | null>) {
   }, [ref]);
 }
 
-function useFoxMood(raw: Mood | undefined): Mood {
-  const [state, setState] = useState<HysteresisState>({ displayed: 'calm' });
-  useEffect(() => {
-    if (!raw) return;
-    const id = window.setInterval(() => {
-      setState((s) => nextMood(s, raw, Date.now()));
-    }, 500);
-    return () => window.clearInterval(id);
-  }, [raw]);
-  return state.displayed;
-}
-
 export function App() {
   const stageRef = useRef<HTMLDivElement>(null);
   useWallScale(stageRef);
   const { snapshot, events, live } = useAlertStream();
   const [selectedName, setSelectedName] = useState<string | null>(null);
-  const foxMood = useFoxMood(snapshot?.mood);
+  const foxMood = snapshot?.mood ?? 'calm';
   const selected = snapshot?.clusters.find((cluster) => cluster.name === selectedName) ?? null;
 
   useEffect(() => {

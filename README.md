@@ -8,14 +8,14 @@ Live multi-cluster **firing** alert dashboard for Shturval (VictoriaMetrics / Al
 - Fallback mode `SOURCE_MODE=vmselect` queries `ALERTS{alertstate="firing"}` on VMSelect.
 - Browser uses SSE (`/api/stream`) for snapshots and diff events.
 
-Image: `registry.sion2k.ru/shturval/shturval-alert-wall`.
+Image: `ghcr.io/vutratenko/shturval-alert-wall`.
 
 ## GitOps (Argo CD)
 
 - Overlay: `charts/shturval-alert-wall/values-cluster.yaml` (CI bumps `image.tag` on push to `main`).
 - Application manifest: [deploy/application.yaml](deploy/application.yaml) (project `default`, namespace `shturval-alert-wall`).
 - Private repo: deploy key + Secret `deploy/argocd-repo-secret.example.yaml` in `shturval-cd`.
-- Copy registry pull secret into `shturval-alert-wall` as `regcred` (e.g. clone `registry-shturval-pull` from `shturval-ctf`).
+- The image is a public GHCR package, so the namespace does not need a registry pull secret.
 
 ## Local development
 

@@ -1,5 +1,5 @@
 image:
-  repository: registry.sion2k.ru/shturval/shturval-alert-wall
+  repository: ghcr.io/vutratenko/shturval-alert-wall
   tag: latest
   pullPolicy: IfNotPresent
   pullSecrets: []

@@ -274,6 +274,58 @@ func (m *memSource) ExpireSilence(_ context.Context, id string) error {
 	return m.err
 }
 
+func TestContext_emptySelectDoesNotDial(t *testing.T) {
+	hub := NewHub()
+	hub.Update(model.Snapshot{
+		GeneratedAt: time.Now().UTC(),
+		Clusters: []model.ClusterSummary{{
+			Name: "demo", Source: "am", Reachable: true,
+			Alerts: []model.Alert{{Fingerprint: "n", Alertname: "KubeNodeNotReady", Labels: map[string]string{"node": "worker-04"}}},
+		}},
+	})
+	dialed := false
+	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { dialed = true }))
+	t.Cleanup(upstream.Close)
+	srv := &Server{Hub: hub, HTTPClient: upstream.Client()}
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/context?source=am&fingerprint=n", nil))
+	if rec.Code != 200 || dialed {
+		t.Fatalf("code %d dialed %v body %s", rec.Code, dialed, rec.Body.String())
+	}
+	var body source.Context
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Available {
+		t.Fatalf("%v %+v", err, body)
+	}
+}
+
+func TestContext_timeoutIsUnavailable(t *testing.T) {
+	hub := NewHub()
+	hub.Update(model.Snapshot{
+		GeneratedAt: time.Now().UTC(),
+		Clusters: []model.ClusterSummary{{
+			Name: "demo", Source: "am", Reachable: true,
+			Alerts: []model.Alert{{Fingerprint: "n", Labels: map[string]string{"node": "worker-04"}}},
+		}},
+	})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	t.Cleanup(upstream.Close)
+	srv := &Server{Hub: hub, SelectURL: upstream.URL, HTTPClient: upstream.Client(), ContextTimeout: 30 * time.Millisecond}
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/context?source=am&fingerprint=n", nil))
+	if rec.Code != 200 {
+		t.Fatal(rec.Code)
+	}
+	var body source.Context
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if !body.Available || body.Error != "метрики недоступны" {
+		t.Fatalf("%+v", body)
+	}
+}
+
 func TestPushSubscription_missingStore(t *testing.T) {
 	srv := &Server{Hub: NewHub()}
 	rec := httptest.NewRecorder()

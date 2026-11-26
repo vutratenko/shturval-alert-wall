@@ -112,6 +112,10 @@ export function boardCards(
   return [...firing, ...quiet.map((alert) => ({ kind: 'silenced', alert }) as BoardCard)];
 }
 
+export function memberLine(alert: Alert, now = Date.now()): string {
+  return `${alert.alertname} · ${severityLabel(alert.severity)} · горит ${firingDuration(alert.startsAt, now)}`;
+}
+
 export function severityLabel(sev: Bucket): string {
   switch (sev) {
     case 'critical':

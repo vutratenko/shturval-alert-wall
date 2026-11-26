@@ -44,7 +44,8 @@ Open [http://localhost:8080/wall](http://localhost:8080/wall).
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SOURCE_MODE` | `alertmanager` | `alertmanager`, `vmselect`, or `fake` |
-| `VMSELECT_URL` | | Required for `vmselect` mode |
+| `VMSELECT_URL` | | Required for `vmselect` mode. In `alertmanager` mode the episode card uses it for a short metric range. Empty hides that block |
+| `RUNBOOK_BASE_URL` | | When an alert has no `runbook_url`, the card links to this base plus the alert name. Empty leaves the link off |
 | `STATIC_SOURCES` | | `cluster1=http://...;cluster2=http://...` |
 | `POLL_INTERVAL` | `1s` | Poll period |
 | `GROUP_WINDOW` | `15m` | Cascade window. Alerts that share a node, pod, or workload and start within this window count as one episode. `0s` counts every alert |

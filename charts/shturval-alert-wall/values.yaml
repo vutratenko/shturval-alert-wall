@@ -36,6 +36,7 @@ sources:
   #   - cluster: sion2k-cluster
   #     url: http://vmalertmanager-shturval-metrics-collector.victoria-metrics.svc:9093
   vmselectUrl: ""
+  runbookBaseUrl: ""
   discoveryEnabled: "true"
 pollInterval: 1s
 groupWindow: 15m

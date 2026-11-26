@@ -29,7 +29,7 @@ type Event struct {
 	Snap    *model.Snapshot `json:"snapshot,omitempty"`
 }
 
-func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds, window time.Duration) model.Snapshot {
+func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds, window time.Duration, runbookBase string) model.Snapshot {
 	clusters := make([]model.ClusterSummary, 0, len(fetches))
 	var total model.Counts
 	unreachable := 0
@@ -38,6 +38,7 @@ func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds, window time
 		if alerts == nil {
 			alerts = []model.Alert{}
 		}
+		applyRunbooks(runbookBase, alerts, f.Silenced)
 		var groups []model.Group
 		counts := model.CountAlerts(alerts)
 		if window > 0 {
@@ -287,6 +288,7 @@ type Poller struct {
 	Timeout     time.Duration
 	Th          mood.Thresholds
 	GroupWindow time.Duration
+	RunbookBase string
 }
 
 func (p *Poller) Poll(ctx context.Context) []ClusterFetch {
@@ -316,5 +318,5 @@ func (p *Poller) Poll(ctx context.Context) []ClusterFetch {
 }
 
 func (p *Poller) Snapshot(ctx context.Context) model.Snapshot {
-	return Build(p.Poll(ctx), time.Now().UTC(), p.Th, p.GroupWindow)
+	return Build(p.Poll(ctx), time.Now().UTC(), p.Th, p.GroupWindow, p.RunbookBase)
 }

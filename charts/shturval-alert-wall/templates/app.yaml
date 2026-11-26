@@ -109,6 +109,8 @@ spec:
               value: {{ .Values.sources.mode | quote }}
             - name: VMSELECT_URL
               value: {{ .Values.sources.vmselectUrl | quote }}
+            - name: RUNBOOK_BASE_URL
+              value: {{ .Values.sources.runbookBaseUrl | quote }}
             - name: POLL_INTERVAL
               value: {{ .Values.pollInterval | quote }}
             - name: GROUP_WINDOW

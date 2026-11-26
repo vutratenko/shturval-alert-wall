@@ -45,11 +45,12 @@ func main() {
 	fakeSrc := prepareFake(cfg)
 	refresh := &discovery.Refreshing{Discoverer: discovery.Discoverer{Static: cfg.StaticSources}}
 	api := &httpapi.Server{
-		Hub:     hub,
-		Static:  static,
-		Push:    pushStore,
-		Silence: cfg.SilenceAllowed(),
-		Sources: func() []source.Source { return buildSources(cfg, refresh, fakeSrc) },
+		Hub:       hub,
+		Static:    static,
+		Push:      pushStore,
+		Silence:   cfg.SilenceAllowed(),
+		SelectURL: cfg.VMSelectURL,
+		Sources:   func() []source.Source { return buildSources(cfg, refresh, fakeSrc) },
 	}
 	dispatcher := &push.Dispatcher{
 		Store: pushStore,
@@ -161,7 +162,7 @@ func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refresh
 	if len(sources) == 0 {
 		slog.Warn("no alert sources configured")
 	}
-	p := &aggregate.Poller{Sources: sources, Timeout: cfg.PollTimeout, Th: cfg.Mood, GroupWindow: cfg.GroupWindow}
+	p := &aggregate.Poller{Sources: sources, Timeout: cfg.PollTimeout, Th: cfg.Mood, GroupWindow: cfg.GroupWindow, RunbookBase: cfg.RunbookBaseURL}
 	fetches := pollFetches(ctx, cfg, p)
 	for _, f := range fetches {
 		v := 0.0
@@ -170,7 +171,7 @@ func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refresh
 		}
 		metrics.SourceUp.WithLabelValues(f.Name).Set(v)
 	}
-	snap := aggregate.Build(fetches, time.Now().UTC(), cfg.Mood, cfg.GroupWindow)
+	snap := aggregate.Build(fetches, time.Now().UTC(), cfg.Mood, cfg.GroupWindow, cfg.RunbookBaseURL)
 	snap.Silence = cfg.SilenceAllowed()
 	events := hub.Update(snap)
 	if alerts != nil {

@@ -26,6 +26,7 @@ type Config struct {
 	GroupWindow      time.Duration
 	SourceMode       string
 	VMSelectURL      string
+	RunbookBaseURL   string
 	FakeAlertsPath   string
 	StaticSources    []discovery.StaticEndpoint
 	Mood             mood.Thresholds
@@ -45,6 +46,7 @@ func Load() Config {
 		GroupWindow:      durationEnv("GROUP_WINDOW", 15*time.Minute),
 		SourceMode:       strings.ToLower(env("SOURCE_MODE", "alertmanager")),
 		VMSelectURL:      env("VMSELECT_URL", ""),
+		RunbookBaseURL:   env("RUNBOOK_BASE_URL", ""),
 		FakeAlertsPath:   env("FAKE_ALERTS_PATH", ""),
 		DiscoveryEvery:   durationEnv("DISCOVERY_INTERVAL", 60*time.Second),
 		PollTimeout:      durationEnv("POLL_TIMEOUT", 5*time.Second),

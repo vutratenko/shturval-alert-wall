@@ -13,7 +13,7 @@ func TestBuild_sortsBySeverity(t *testing.T) {
 	snap := Build([]ClusterFetch{
 		{Name: "a", Reachable: true, Alerts: []model.Alert{{Fingerprint: "1", Severity: model.BucketInfo}}},
 		{Name: "b", Reachable: true, Alerts: []model.Alert{{Fingerprint: "2", Severity: model.BucketCritical}}},
-	}, now, mood.DefaultThresholds(), 0)
+	}, now, mood.DefaultThresholds(), 0, "")
 	if snap.Clusters[0].Name != "b" {
 		t.Fatalf("got %q first", snap.Clusters[0].Name)
 	}
@@ -64,7 +64,7 @@ func TestBuild_ignoresSilencedInCounts(t *testing.T) {
 		Silenced: []model.SilencedAlert{{
 			Alert: model.Alert{Fingerprint: "1", Severity: model.BucketCritical},
 		}},
-	}}, time.Now().UTC(), mood.DefaultThresholds(), 0)
+	}}, time.Now().UTC(), mood.DefaultThresholds(), 0, "")
 	if snap.Clusters[0].Counts.Critical != 0 || snap.Mood != model.MoodCalm {
 		t.Fatalf("%+v mood %s", snap.Clusters[0].Counts, snap.Mood)
 	}

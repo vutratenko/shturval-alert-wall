@@ -154,5 +154,5 @@ func nodeAlert(fp, name string, sev model.Bucket, node string, at time.Time) mod
 func buildDemo(alerts []model.Alert, silenced []model.SilencedAlert, window time.Duration) model.Snapshot {
 	return Build([]ClusterFetch{{
 		Name: "demo", Reachable: true, Alerts: alerts, Silenced: silenced,
-	}}, time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC), mood.DefaultThresholds(), window)
+	}}, time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC), mood.DefaultThresholds(), window, "")
 }

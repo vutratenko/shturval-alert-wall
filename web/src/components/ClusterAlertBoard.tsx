@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { alertChips, boardCards, firingDuration, groupDetail, severityLabel, type BoardFilter } from '../alerts';
+import { alertChips, boardCards, firingDuration, groupDetail, memberLine, severityLabel, type BoardFilter } from '../alerts';
 import type { Alert, ClusterSummary, Group, SilenceRef, SilencedAlert } from '../types';
 
 type Filter = BoardFilter;
@@ -205,6 +205,7 @@ export function ClusterAlertBoard({ cluster, silenceEnabled, onClose }: Props) {
                 <GroupCard
                   key={card.group.id}
                   group={card.group}
+                  source={source}
                   silence={silenceEnabled ? silenceControl : null}
                 />
               ) : (
@@ -223,9 +224,11 @@ export function ClusterAlertBoard({ cluster, silenceEnabled, onClose }: Props) {
 
 function GroupCard({
   group,
+  source,
   silence,
 }: {
   group: Group;
+  source: string;
   silence: ((alert: Alert) => React.ReactNode) | null;
 }) {
   const detail = groupDetail(group);
@@ -234,15 +237,59 @@ function GroupCard({
     <article className={`alert-card sev-${group.severity}`}>
       <CardBody alert={group.root} />
       {detail ? <p className="group-reason">{detail}</p> : null}
+      <GroupContext source={source} alert={group.root} />
       {silence?.(group.root)}
       {rest.map((member) => (
         <div key={member.fingerprint} className="group-member">
-          <span className="group-member-name">{member.alertname}</span>
+          <span className="group-member-name">{memberLine(member)}</span>
           {silence?.(member)}
         </div>
       ))}
     </article>
   );
+}
+
+type ContextSample = { name: string; before?: string; after?: string };
+
+function GroupContext({ source, alert }: { source: string; alert: Alert }) {
+  const key = `${source}\n${alert.fingerprint}\n${alert.startsAt}`;
+  const [phase, setPhase] = useState<'load' | 'off' | 'text'>('load');
+  const [text, setText] = useState('');
+  useEffect(() => {
+    const ctrl = new AbortController();
+    let gone = false;
+    setPhase('load');
+    const query = new URLSearchParams({ source, fingerprint: alert.fingerprint });
+    void fetch(`/api/context?${query}`, { credentials: 'same-origin', signal: ctrl.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('context'))))
+      .then((body: { available?: boolean; error?: string; samples?: ContextSample[] }) => {
+        if (gone) return;
+        if (!body.available) {
+          setPhase('off');
+          return;
+        }
+        const samples = body.samples ?? [];
+        setText(body.error || (samples.length > 0 ? samples.map(sampleText).join(' · ') : 'за это окно метрик нет'));
+        setPhase('text');
+      })
+      .catch((err: unknown) => {
+        if (gone || (err instanceof DOMException && err.name === 'AbortError')) return;
+        setText('метрики недоступны');
+        setPhase('text');
+      });
+    return () => {
+      gone = true;
+      ctrl.abort();
+    };
+  }, [key, source, alert.fingerprint, alert.startsAt]);
+  if (phase === 'off') return null;
+  return <p className="group-reason">{phase === 'load' ? 'смотрим метрики' : text}</p>;
+}
+
+function sampleText(sample: ContextSample): string {
+  if (sample.before && sample.after) return `${sample.name} ${sample.before} → ${sample.after}`;
+  const value = sample.after || sample.before;
+  return value ? `${sample.name} ${value}` : sample.name;
 }
 
 function CardBody({ alert }: { alert: Alert }) {

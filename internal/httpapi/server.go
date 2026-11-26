@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,11 +22,14 @@ func init() {
 }
 
 type Server struct {
-	Hub     *Hub
-	Static  fs.FS
-	Push    *push.Store
-	Sources func() []source.Source
-	Silence bool
+	Hub            *Hub
+	Static         fs.FS
+	Push           *push.Store
+	Sources        func() []source.Source
+	Silence        bool
+	SelectURL      string
+	HTTPClient     *http.Client
+	ContextTimeout time.Duration
 }
 
 func (s *Server) Handler() http.Handler {
@@ -35,6 +39,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	m.HandleFunc("GET /api/snapshot", s.snapshot)
 	m.HandleFunc("GET /api/stream", s.stream)
+	m.HandleFunc("GET /api/context", s.alertContext)
 	m.HandleFunc("POST /api/silences", s.createSilence)
 	m.HandleFunc("DELETE /api/silences/{id}", s.expireSilence)
 	m.HandleFunc("GET /api/push/vapid", s.pushVapid)
@@ -51,6 +56,36 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) snapshot(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, 200, s.Hub.Snapshot())
+}
+
+func (s *Server) alertContext(w http.ResponseWriter, r *http.Request) {
+	sourceName := strings.TrimSpace(r.URL.Query().Get("source"))
+	fingerprint := strings.TrimSpace(r.URL.Query().Get("fingerprint"))
+	if sourceName == "" || fingerprint == "" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	alert, ok := findAlert(s.Hub.Snapshot(), sourceName, fingerprint)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if strings.TrimSpace(s.SelectURL) == "" {
+		writeJSON(w, http.StatusOK, source.Context{Available: false})
+		return
+	}
+	timeout := s.ContextTimeout
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	defer cancel()
+	got, err := source.QueryContext(ctx, s.SelectURL, s.HTTPClient, alert, time.Now())
+	if err != nil {
+		writeJSON(w, http.StatusOK, source.Context{Available: true, Error: "метрики недоступны"})
+		return
+	}
+	writeJSON(w, http.StatusOK, got)
 }
 
 func (s *Server) stream(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alertChips, boardCards, filterAlerts, firingDuration, groupDetail, groupReason, sortAlerts } from './alerts';
+import { alertChips, boardCards, filterAlerts, firingDuration, groupDetail, groupReason, memberLine, sortAlerts } from './alerts';
 import type { Alert, Group, SilencedAlert } from './types';
 
 const base = (overrides: Partial<Alert>): Alert => ({
@@ -42,6 +42,15 @@ describe('alertChips', () => {
       { key: 'pod', value: 'api-1' },
       { key: 'node', value: 'n1' },
     ]);
+  });
+});
+
+describe('memberLine', () => {
+  it('names the alert, its severity, and how long it has fired', () => {
+    const now = new Date('2026-03-20T12:00:00Z').getTime();
+    expect(
+      memberLine(base({ alertname: 'KubePodNotReady', severity: 'warning', startsAt: '2026-03-20T11:48:00Z' }), now),
+    ).toBe('KubePodNotReady · warning · горит 12 мин');
   });
 });
 

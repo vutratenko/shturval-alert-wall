@@ -4,6 +4,7 @@ image:
 sources:
   mode: alertmanager
   discoveryEnabled: "true"
+  vmselectUrl: http://shturval-monitoring-vmselect.victoria-metrics.svc:8481/select/0/prometheus
 rbac:
   clusterRole: true
 auth:

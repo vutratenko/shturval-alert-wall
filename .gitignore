@@ -2,6 +2,9 @@ bin/
 web/node_modules/
 addon/node_modules/
 addon/dist/
+addon/pack/
+addon/firefox/
+addon/web-ext-artifacts/
 addon/tsconfig.tsbuildinfo
 cmd/server/static/assets/
 cmd/server/static/index.html

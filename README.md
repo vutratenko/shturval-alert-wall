@@ -84,6 +84,14 @@ The header toggle enables Web Push for this browser only. Turning it on asks for
 cd addon && npm ci && npm test && npm run build
 ```
 
-Load `addon/dist` as an unpacked extension. In the add-on options, paste the wall origin (`https://alerts.example.com` or a `/wall` URL). The browser asks for that origin only. `http://` is accepted for `localhost` and `127.0.0.1`, including a non-default port. The options page checks `GET /api/healthz` and keeps the address only when `service` is `shturval-alert-wall`.
+CI publishes `shturval-alert-wall.crx` and a Mozilla-signed `shturval-alert-wall.xpi` as `ghcr.io/vutratenko/shturval-alert-wall-addon` (`latest` on `main`, `sha-` plus the short commit). The XPI is signed for self-distribution and is not listed on addons.mozilla.org. The Chrome Web Store is separate.
 
-The background alarm is 20 seconds. Chrome may delay packed-extension alarms to one minute. A click on a notification opens `/wall` for that installation. Publishing to the Chrome Web Store and AMO is separate from this build.
+```sh
+oras pull ghcr.io/vutratenko/shturval-alert-wall-addon:latest
+```
+
+Drag the CRX onto `browser://tune` in Yandex Browser, or onto `chrome://extensions` in Chrome. Open the XPI in Firefox 142 or newer. For development, load `addon/dist` as an unpacked extension.
+
+In the add-on options, paste the wall origin (`https://alerts.example.com` or a `/wall` URL). The browser asks for that origin only. `http://` is accepted for `localhost` and `127.0.0.1`, including a non-default port. The options page checks `GET /api/healthz` and keeps the address only when `service` is `shturval-alert-wall`.
+
+The background alarm is 20 seconds. Chrome may delay packed-extension alarms to one minute. A click on a notification opens `/wall` for that installation.

@@ -44,6 +44,24 @@ jobs:
           test -s addon/dist/popup.html
           test -s addon/dist/options.html
           grep -q 'shturval-alert-wall@sion2k.ru' addon/dist/manifest.json
+      - name: Pack the add-on with a throwaway key
+        working-directory: addon
+        run: |
+          node --input-type=module -e "
+            import { generateKeyPairSync } from 'node:crypto';
+            import { writeFileSync } from 'node:fs';
+            const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+            writeFileSync('test-key.pem', privateKey.export({ type: 'pkcs8', format: 'pem' }));
+          "
+          ADDON_CRX_KEY="$PWD/test-key.pem" npm run pack
+          python3 - <<'PY'
+          import zipfile
+          crx = open('pack/shturval-alert-wall.crx', 'rb').read(8)
+          assert crx[:4] == b'Cr24' and int.from_bytes(crx[4:8], 'little') == 3, crx
+          text = zipfile.ZipFile('pack/shturval-alert-wall.xpi').read('manifest.json').decode()
+          assert 'shturval-alert-wall@sion2k.ru' in text
+          PY
+          rm -f test-key.pem
       - run: go test -race ./...
       - run: go vet ./...
   helm:
@@ -148,3 +166,122 @@ jobs:
           fi
           git commit -m "ci: bump image tag [skip ci]"
           git push
+  addon:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: addon/package-lock.json
+      - run: npm ci
+        working-directory: addon
+      - run: npm run build
+        working-directory: addon
+      - name: Pack CRX
+        working-directory: addon
+        env:
+          ADDON_CRX_KEY: ${{ secrets.ADDON_CRX_KEY }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          test -n "$ADDON_CRX_KEY" || { echo "ADDON_CRX_KEY is empty"; exit 1; }
+          test -n "$AMO_JWT_ISSUER" || { echo "AMO_JWT_ISSUER is empty"; exit 1; }
+          test -n "$AMO_JWT_SECRET" || { echo "AMO_JWT_SECRET is empty"; exit 1; }
+          printf '%s' "$ADDON_CRX_KEY" > "$RUNNER_TEMP/addon.pem"
+          ADDON_CRX_KEY="$RUNNER_TEMP/addon.pem" npm run pack
+      - name: Sign XPI
+        working-directory: addon
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          node --input-type=module -e "
+            import { prepareFirefoxSource } from './pack.mjs';
+            await prepareFirefoxSource({
+              sourceDir: 'dist',
+              outDir: 'firefox',
+              runNumber: process.env.GITHUB_RUN_NUMBER,
+              runAttempt: process.env.GITHUB_RUN_ATTEMPT,
+            });
+          "
+          npx web-ext lint --source-dir firefox
+          zip -qr "$RUNNER_TEMP/addon-source.zip" src public pack.mjs vite.config.ts tsconfig.json package.json *.html \
+            -x 'node_modules/*'
+          npx web-ext sign \
+            --source-dir firefox \
+            --artifacts-dir web-ext-artifacts \
+            --channel unlisted \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET" \
+            --upload-source-code "$RUNNER_TEMP/addon-source.zip" \
+            --timeout 600000 \
+            --approval-timeout 600000 \
+            --no-input
+          signed=$(find web-ext-artifacts -name '*.xpi' -print -quit)
+          test -n "$signed"
+          cp "$signed" pack/shturval-alert-wall.xpi
+      - uses: oras-project/setup-oras@v1
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish add-on package
+        working-directory: addon
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -u
+          short="sha-${GITHUB_SHA::7}"
+          ref="ghcr.io/${OWNER}/shturval-alert-wall-addon:${short}"
+          oras push "$ref" \
+            pack/shturval-alert-wall.crx:application/octet-stream \
+            pack/shturval-alert-wall.xpi:application/octet-stream
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            oras tag "$ref" latest
+          fi
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            oras tag "$ref" "$GITHUB_REF_NAME"
+          fi
+          pkg=shturval-alert-wall-addon
+          anonymous_pull() {
+            token=$(curl -fsS "https://ghcr.io/token?service=ghcr.io&scope=repository:${OWNER}/${pkg}:pull" | jq -r .token)
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer ${token}" \
+              -H "Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json" \
+              "https://ghcr.io/v2/${OWNER}/${pkg}/manifests/${short}")
+            [ "$code" = "200" ]
+          }
+          for i in 1 2 3 4 5 6; do
+            if anonymous_pull; then
+              echo "ghcr.io/${OWNER}/${pkg}:${short} is public"
+              exit 0
+            fi
+            gh api --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              "/users/${OWNER}/packages/container/${pkg}" \
+              -f visibility=public || true
+            gh api --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              "/user/packages/container/${pkg}" \
+              -f visibility=public || true
+            gh api --method PUT \
+              -H "Accept: application/vnd.github+json" \
+              "/user/packages/container/${pkg}/visibility?visibility=public" || true
+            echo "package not public yet, retry ${i}"
+            sleep 10
+          done
+          if anonymous_pull; then
+            echo "ghcr.io/${OWNER}/${pkg}:${short} is public"
+            exit 0
+          fi
+          echo "Package is still private. Set it to Public at https://github.com/users/${OWNER}/packages/container/package/${pkg}/settings"
+          exit 1

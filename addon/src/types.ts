@@ -13,11 +13,21 @@ export type Alert = {
 
 export type Counts = { critical: number; warning: number; info: number };
 
+export type Group = {
+  id: string;
+  keyKind: string;
+  keyValue: string;
+  severity: Bucket;
+  root: Alert;
+  members: Alert[];
+};
+
 export type ClusterSummary = {
   name: string;
   reachable: boolean;
   counts: Counts;
   alerts: Alert[];
+  groups?: Group[];
   silenced?: Alert[];
 };
 

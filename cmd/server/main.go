@@ -161,7 +161,7 @@ func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refresh
 	if len(sources) == 0 {
 		slog.Warn("no alert sources configured")
 	}
-	p := &aggregate.Poller{Sources: sources, Timeout: cfg.PollTimeout, Th: cfg.Mood}
+	p := &aggregate.Poller{Sources: sources, Timeout: cfg.PollTimeout, Th: cfg.Mood, GroupWindow: cfg.GroupWindow}
 	fetches := pollFetches(ctx, cfg, p)
 	for _, f := range fetches {
 		v := 0.0
@@ -170,7 +170,7 @@ func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refresh
 		}
 		metrics.SourceUp.WithLabelValues(f.Name).Set(v)
 	}
-	snap := aggregate.Build(fetches, time.Now().UTC(), cfg.Mood)
+	snap := aggregate.Build(fetches, time.Now().UTC(), cfg.Mood, cfg.GroupWindow)
 	snap.Silence = cfg.SilenceAllowed()
 	events := hub.Update(snap)
 	if alerts != nil {

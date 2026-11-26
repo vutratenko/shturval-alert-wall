@@ -24,11 +24,12 @@ type Event struct {
 	Type    string          `json:"type"`
 	Cluster string          `json:"cluster,omitempty"`
 	Alert   *model.Alert    `json:"alert,omitempty"`
+	Group   *model.Group    `json:"group,omitempty"`
 	At      time.Time       `json:"at"`
 	Snap    *model.Snapshot `json:"snapshot,omitempty"`
 }
 
-func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds) model.Snapshot {
+func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds, window time.Duration) model.Snapshot {
 	clusters := make([]model.ClusterSummary, 0, len(fetches))
 	var total model.Counts
 	unreachable := 0
@@ -37,7 +38,12 @@ func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds) model.Snaps
 		if alerts == nil {
 			alerts = []model.Alert{}
 		}
+		var groups []model.Group
 		counts := model.CountAlerts(alerts)
+		if window > 0 {
+			groups = Group(f.Name, alerts, window)
+			counts = countGroups(groups)
+		}
 		if !f.Reachable {
 			unreachable++
 		}
@@ -49,7 +55,7 @@ func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds) model.Snaps
 			sourceName = f.Name
 		}
 		clusters = append(clusters, model.ClusterSummary{
-			Name: f.Name, Source: sourceName, Reachable: f.Reachable, Counts: counts, Alerts: alerts, Silenced: f.Silenced,
+			Name: f.Name, Source: sourceName, Reachable: f.Reachable, Counts: counts, Alerts: alerts, Groups: groups, Silenced: f.Silenced,
 		})
 	}
 	sortClusters(clusters)
@@ -118,9 +124,13 @@ func Diff(prev, next model.Snapshot) []Event {
 			if !nc.Reachable {
 				out = append(out, Event{Type: "cluster.down", Cluster: name, At: now})
 			}
-			for i := range nc.Alerts {
-				a := nc.Alerts[i]
-				out = append(out, Event{Type: "alert.firing", Cluster: name, Alert: &a, At: now})
+			if len(nc.Groups) > 0 {
+				out = append(out, openGroups(name, nc.Groups, now)...)
+			} else {
+				for i := range nc.Alerts {
+					a := nc.Alerts[i]
+					out = append(out, Event{Type: "alert.firing", Cluster: name, Alert: &a, At: now})
+				}
 			}
 			continue
 		}
@@ -130,44 +140,15 @@ func Diff(prev, next model.Snapshot) []Event {
 		if !pc.Reachable && nc.Reachable {
 			out = append(out, Event{Type: "cluster.up", Cluster: name, At: now})
 		}
+		grouped := len(pc.Groups) > 0 || len(nc.Groups) > 0
 		prevActive := indexAlerts(pc.Alerts)
 		prevSilenced := indexSilenced(pc.Silenced)
 		nextActive := indexAlerts(nc.Alerts)
 		nextSilenced := indexSilenced(nc.Silenced)
-		for fp, a := range nextActive {
-			_, wasActive := prevActive[fp]
-			_, wasSilenced := prevSilenced[fp]
-			aa := a
-			if wasSilenced {
-				out = append(out, Event{Type: "alert.unsilenced", Cluster: name, Alert: &aa, At: now})
-				out = append(out, Event{Type: "alert.firing", Cluster: name, Alert: &aa, At: now})
-				continue
-			}
-			if !wasActive {
-				out = append(out, Event{Type: "alert.firing", Cluster: name, Alert: &aa, At: now})
-			}
+		if grouped {
+			out = append(out, diffGroups(name, pc, nc, prevActive, nextActive, nextSilenced, now)...)
 		}
-		for fp, a := range prevActive {
-			if _, still := nextActive[fp]; still {
-				continue
-			}
-			aa := a
-			if silenced, nowSilenced := nextSilenced[fp]; nowSilenced {
-				s := silenced
-				out = append(out, Event{Type: "alert.silenced", Cluster: name, Alert: &s, At: now})
-				continue
-			}
-			out = append(out, Event{Type: "alert.resolved", Cluster: name, Alert: &aa, At: now})
-		}
-		for fp, a := range prevSilenced {
-			_, stillActive := nextActive[fp]
-			_, stillSilenced := nextSilenced[fp]
-			if stillActive || stillSilenced {
-				continue
-			}
-			aa := a
-			out = append(out, Event{Type: "alert.resolved", Cluster: name, Alert: &aa, At: now})
-		}
+		out = append(out, diffAlerts(name, prevActive, prevSilenced, nextActive, nextSilenced, now, grouped)...)
 	}
 	for name, pc := range prevClusters {
 		if _, ok := nextClusters[name]; !ok {
@@ -179,10 +160,133 @@ func Diff(prev, next model.Snapshot) []Event {
 	return out
 }
 
+func openGroups(cluster string, groups []model.Group, at time.Time) []Event {
+	out := make([]Event, 0, len(groups))
+	for i := range groups {
+		g := groups[i]
+		root := g.Root
+		out = append(out, Event{Type: "group.opened", Cluster: cluster, Alert: &root, Group: &g, At: at})
+	}
+	return out
+}
+
+func diffGroups(cluster string, prev, next model.ClusterSummary, prevActive, nextActive, nextSilenced map[string]model.Alert, at time.Time) []Event {
+	var out []Event
+	for i := range next.Groups {
+		g := next.Groups[i]
+		if !overlaps(g.Members, prevActive) {
+			root := g.Root
+			out = append(out, Event{Type: "group.opened", Cluster: cluster, Alert: &root, Group: &g, At: at})
+			continue
+		}
+		if prevSev, ok := overlapSeverity(prev, g.Members); ok && severityRank(g.Severity) < severityRank(prevSev) {
+			root := g.Root
+			out = append(out, Event{Type: "group.promoted", Cluster: cluster, Alert: &root, Group: &g, At: at})
+		}
+	}
+	for i := range prev.Groups {
+		g := prev.Groups[i]
+		if overlaps(g.Members, nextActive) || overlaps(g.Members, nextSilenced) {
+			continue
+		}
+		root := g.Root
+		out = append(out, Event{Type: "group.resolved", Cluster: cluster, Alert: &root, Group: &g, At: at})
+	}
+	return out
+}
+
+func overlaps(members []model.Alert, fps map[string]model.Alert) bool {
+	for _, member := range members {
+		if _, ok := fps[member.Fingerprint]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func overlapSeverity(prev model.ClusterSummary, members []model.Alert) (model.Bucket, bool) {
+	want := map[string]struct{}{}
+	for _, member := range members {
+		want[member.Fingerprint] = struct{}{}
+	}
+	best := model.BucketInfo
+	found := false
+	consider := func(sev model.Bucket) {
+		if !found || severityRank(sev) < severityRank(best) {
+			best = sev
+			found = true
+		}
+	}
+	if len(prev.Groups) > 0 {
+		for _, group := range prev.Groups {
+			for _, member := range group.Members {
+				if _, ok := want[member.Fingerprint]; ok {
+					consider(group.Severity)
+					break
+				}
+			}
+		}
+		return best, found
+	}
+	for _, alert := range prev.Alerts {
+		if _, ok := want[alert.Fingerprint]; ok {
+			consider(alert.Severity)
+		}
+	}
+	return best, found
+}
+
+func diffAlerts(cluster string, prevActive, prevSilenced, nextActive, nextSilenced map[string]model.Alert, at time.Time, grouped bool) []Event {
+	var out []Event
+	for fp, alert := range nextActive {
+		_, wasActive := prevActive[fp]
+		_, wasSilenced := prevSilenced[fp]
+		aa := alert
+		if wasSilenced {
+			out = append(out, Event{Type: "alert.unsilenced", Cluster: cluster, Alert: &aa, At: at})
+			if !grouped {
+				out = append(out, Event{Type: "alert.firing", Cluster: cluster, Alert: &aa, At: at})
+			}
+			continue
+		}
+		if !wasActive && !grouped {
+			out = append(out, Event{Type: "alert.firing", Cluster: cluster, Alert: &aa, At: at})
+		}
+	}
+	for fp, alert := range prevActive {
+		if _, still := nextActive[fp]; still {
+			continue
+		}
+		if silenced, nowSilenced := nextSilenced[fp]; nowSilenced {
+			s := silenced
+			out = append(out, Event{Type: "alert.silenced", Cluster: cluster, Alert: &s, At: at})
+			continue
+		}
+		if !grouped {
+			aa := alert
+			out = append(out, Event{Type: "alert.resolved", Cluster: cluster, Alert: &aa, At: at})
+		}
+	}
+	if grouped {
+		return out
+	}
+	for fp, alert := range prevSilenced {
+		_, stillActive := nextActive[fp]
+		_, stillSilenced := nextSilenced[fp]
+		if stillActive || stillSilenced {
+			continue
+		}
+		aa := alert
+		out = append(out, Event{Type: "alert.resolved", Cluster: cluster, Alert: &aa, At: at})
+	}
+	return out
+}
+
 type Poller struct {
-	Sources []source.Source
-	Timeout time.Duration
-	Th      mood.Thresholds
+	Sources     []source.Source
+	Timeout     time.Duration
+	Th          mood.Thresholds
+	GroupWindow time.Duration
 }
 
 func (p *Poller) Poll(ctx context.Context) []ClusterFetch {
@@ -212,5 +316,5 @@ func (p *Poller) Poll(ctx context.Context) []ClusterFetch {
 }
 
 func (p *Poller) Snapshot(ctx context.Context) model.Snapshot {
-	return Build(p.Poll(ctx), time.Now().UTC(), p.Th)
+	return Build(p.Poll(ctx), time.Now().UTC(), p.Th, p.GroupWindow)
 }

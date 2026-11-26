@@ -65,12 +65,25 @@ type Counts struct {
 
 func (c Counts) Total() int { return c.Critical + c.Warning + c.Info }
 
+// Group is one firing episode inside a cluster. Members share a node, pod, or workload
+// and started within the group window. Counts on the wall use groups, not raw alerts.
+type Group struct {
+	ID       string    `json:"id"`
+	KeyKind  string    `json:"keyKind"`
+	KeyValue string    `json:"keyValue"`
+	Severity Bucket    `json:"severity"`
+	StartsAt time.Time `json:"startsAt"`
+	Root     Alert     `json:"root"`
+	Members  []Alert   `json:"members"`
+}
+
 type ClusterSummary struct {
 	Name      string          `json:"name"`
 	Source    string          `json:"source,omitempty"`
 	Reachable bool            `json:"reachable"`
 	Counts    Counts          `json:"counts"`
 	Alerts    []Alert         `json:"alerts"`
+	Groups    []Group         `json:"groups,omitempty"`
 	Silenced  []SilencedAlert `json:"silenced,omitempty"`
 }
 

@@ -33,6 +33,16 @@ export type SilenceRef = {
 
 export type SilencedAlert = Alert & { silences: SilenceRef[] };
 
+export type Group = {
+  id: string;
+  keyKind: string;
+  keyValue: string;
+  severity: Bucket;
+  startsAt: string;
+  root: Alert;
+  members: Alert[];
+};
+
 export type Counts = { critical: number; warning: number; info: number };
 
 export type ClusterSummary = {
@@ -41,6 +51,7 @@ export type ClusterSummary = {
   reachable: boolean;
   counts: Counts;
   alerts: Alert[];
+  groups?: Group[];
   silenced?: SilencedAlert[];
 };
 
@@ -55,6 +66,7 @@ export type StreamEvent = {
   type: string;
   cluster?: string;
   alert?: Alert;
+  group?: Group;
   at?: string;
   snapshot?: Snapshot;
 };

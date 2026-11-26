@@ -27,6 +27,51 @@ func TestMessage_coalescesABurst(t *testing.T) {
 	}
 }
 
+func TestMessage_groupOpened(t *testing.T) {
+	single := model.Group{
+		Severity: model.BucketCritical,
+		Root:     model.Alert{Alertname: "DiskFull", Severity: model.BucketCritical},
+		Members:  []model.Alert{{Alertname: "DiskFull"}},
+	}
+	title, body, ok := Message([]aggregate.Event{{Type: "group.opened", Cluster: "prod", Group: &single}})
+	if !ok || title != "Штурвал" || body != "DiskFull · prod" {
+		t.Fatalf("%q %q %v", title, body, ok)
+	}
+
+	members := make([]model.Alert, 5)
+	members[0] = model.Alert{Alertname: "KubeNodeNotReady"}
+	cascade := model.Group{
+		Severity: model.BucketCritical,
+		Root:     model.Alert{Alertname: "KubeNodeNotReady", Severity: model.BucketCritical},
+		Members:  members,
+	}
+	_, body, ok = Message([]aggregate.Event{{Type: "group.opened", Cluster: "prod", Group: &cascade}})
+	if !ok || body != "KubeNodeNotReady · prod · ещё 4" {
+		t.Fatalf("%q %v", body, ok)
+	}
+}
+
+func TestMessage_severalGroupsAndPromotion(t *testing.T) {
+	a := model.Group{Root: model.Alert{Alertname: "A"}, Members: []model.Alert{{Alertname: "A"}}}
+	b := model.Group{Root: model.Alert{Alertname: "B"}, Members: []model.Alert{{Alertname: "B"}}}
+	_, body, ok := Message([]aggregate.Event{
+		{Type: "group.opened", Cluster: "a", Group: &a},
+		{Type: "group.opened", Cluster: "b", Group: &b},
+	})
+	if !ok || body != "2 новых групп" {
+		t.Fatalf("%q %v", body, ok)
+	}
+	promoted := model.Group{
+		Severity: model.BucketCritical,
+		Root:     model.Alert{Alertname: "KubeNodeNotReady", Severity: model.BucketCritical},
+		Members:  []model.Alert{{Alertname: "KubeNodeNotReady"}},
+	}
+	_, body, ok = Message([]aggregate.Event{{Type: "group.promoted", Cluster: "prod", Group: &promoted}})
+	if !ok || body != "KubeNodeNotReady · prod · critical" {
+		t.Fatalf("%q %v", body, ok)
+	}
+}
+
 func TestMessage_ignoresEmptyDiff(t *testing.T) {
 	if _, _, ok := Message(nil); ok {
 		t.Fatal("expected no message")

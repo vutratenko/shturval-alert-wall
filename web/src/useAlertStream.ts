@@ -32,7 +32,17 @@ export function useAlertStream() {
     };
 
     es.addEventListener('snapshot', onSnapshot as EventListener);
-    for (const name of ['alert.firing', 'alert.resolved', 'alert.silenced', 'alert.unsilenced', 'cluster.down', 'cluster.up']) {
+    for (const name of [
+      'group.opened',
+      'group.promoted',
+      'group.resolved',
+      'alert.firing',
+      'alert.resolved',
+      'alert.silenced',
+      'alert.unsilenced',
+      'cluster.down',
+      'cluster.up',
+    ]) {
       es.addEventListener(name, onEvent as EventListener);
     }
     let loginStarted = false;

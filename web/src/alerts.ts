@@ -1,4 +1,4 @@
-import type { Alert, Bucket, Counts, SilencedAlert, Snapshot } from './types';
+import type { Alert, Bucket, Counts, Group, SilencedAlert, Snapshot } from './types';
 
 const rank: Record<Bucket, number> = { critical: 0, warning: 1, info: 2 };
 
@@ -64,11 +64,47 @@ export type BoardFilter = Bucket | 'all' | 'silence';
 
 export type BoardCard =
   | { kind: 'firing'; alert: Alert }
+  | { kind: 'group'; group: Group }
   | { kind: 'silenced'; alert: SilencedAlert };
 
-export function boardCards(alerts: Alert[], silenced: SilencedAlert[] | undefined, filter: BoardFilter): BoardCard[] {
+export function groupReason(group: Group): string {
+  if (group.keyKind === 'node') return `общий node ${group.keyValue}`;
+  if (group.keyKind === 'pod') return `общий pod ${group.keyValue}`;
+  if (group.keyKind === 'workload') {
+    const [namespace, kind, ...rest] = group.keyValue.split('/');
+    const name = rest.join('/');
+    if (kind && name) return `общий ${kind} ${namespace}/${name}`;
+  }
+  return '';
+}
+
+export function groupDetail(group: Group): string {
+  const extra = group.members.length - 1;
+  if (extra <= 0) return '';
+  const more = `ещё ${extra}`;
+  const reason = groupReason(group);
+  return reason ? `${more} · ${reason}` : more;
+}
+
+export function boardCards(
+  alerts: Alert[],
+  silenced: SilencedAlert[] | undefined,
+  filter: BoardFilter,
+  groups?: Group[],
+): BoardCard[] {
   const quiet = silenced ?? [];
   if (filter === 'silence') return quiet.map((alert) => ({ kind: 'silenced', alert }));
+  if (groups && groups.length > 0) {
+    const sorted = [...groups].sort((a, b) => {
+      const dr = rank[a.severity] - rank[b.severity];
+      if (dr !== 0) return dr;
+      return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+    });
+    const picked = filter === 'all' ? sorted : sorted.filter((group) => group.severity === filter);
+    const cards: BoardCard[] = picked.map((group) => ({ kind: 'group', group }));
+    if (filter !== 'all') return cards;
+    return [...cards, ...quiet.map((alert) => ({ kind: 'silenced', alert }) as BoardCard)];
+  }
   const firing = filterAlerts(alerts, filter === 'all' ? 'all' : filter).map(
     (alert) => ({ kind: 'firing', alert }) as BoardCard,
   );

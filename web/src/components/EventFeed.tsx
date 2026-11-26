@@ -1,9 +1,19 @@
+import { groupDetail } from '../alerts';
 import type { StreamEvent } from '../types';
 
 type Props = { events: StreamEvent[] };
 
 function label(ev: StreamEvent): string {
+  const root = ev.group?.root.alertname ?? ev.alert?.alertname ?? 'алерт';
   switch (ev.type) {
+    case 'group.opened': {
+      const detail = ev.group ? groupDetail(ev.group) : '';
+      return detail ? `${root} · ${detail}` : root;
+    }
+    case 'group.promoted':
+      return ev.group?.severity ? `${root} · ${ev.group.severity}` : root;
+    case 'group.resolved':
+      return `${root} погас`;
     case 'alert.firing':
       return ev.alert?.alertname ?? 'алерт';
     case 'alert.resolved':
@@ -22,8 +32,8 @@ function label(ev: StreamEvent): string {
 }
 
 function rowClass(ev: StreamEvent): string {
-  if (ev.type === 'alert.firing') return 'firing';
-  if (ev.type === 'alert.resolved') return 'resolved';
+  if (ev.type === 'alert.firing' || ev.type === 'group.opened' || ev.type === 'group.promoted') return 'firing';
+  if (ev.type === 'alert.resolved' || ev.type === 'group.resolved') return 'resolved';
   return '';
 }
 

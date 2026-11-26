@@ -23,6 +23,7 @@ type AuthConfig struct {
 type Config struct {
 	HTTPBind         string
 	PollInterval     time.Duration
+	GroupWindow      time.Duration
 	SourceMode       string
 	VMSelectURL      string
 	FakeAlertsPath   string
@@ -41,6 +42,7 @@ func Load() Config {
 	cfg := Config{
 		HTTPBind:         env("HTTP_BIND_ADDRESS", ":8080"),
 		PollInterval:     durationEnv("POLL_INTERVAL", time.Second),
+		GroupWindow:      durationEnv("GROUP_WINDOW", 15*time.Minute),
 		SourceMode:       strings.ToLower(env("SOURCE_MODE", "alertmanager")),
 		VMSelectURL:      env("VMSELECT_URL", ""),
 		FakeAlertsPath:   env("FAKE_ALERTS_PATH", ""),

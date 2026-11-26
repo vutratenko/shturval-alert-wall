@@ -111,6 +111,8 @@ spec:
               value: {{ .Values.sources.vmselectUrl | quote }}
             - name: POLL_INTERVAL
               value: {{ .Values.pollInterval | quote }}
+            - name: GROUP_WINDOW
+              value: {{ .Values.groupWindow | quote }}
             - name: POLL_TIMEOUT
               value: {{ .Values.pollTimeout | quote }}
             - name: DISCOVERY_INTERVAL

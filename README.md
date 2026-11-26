@@ -47,18 +47,33 @@ Open [http://localhost:8080/wall](http://localhost:8080/wall).
 | `VMSELECT_URL` | | Required for `vmselect` mode |
 | `STATIC_SOURCES` | | `cluster1=http://...;cluster2=http://...` |
 | `POLL_INTERVAL` | `1s` | Poll period |
+| `GROUP_WINDOW` | `15m` | Cascade window. Alerts that share a node, pod, or workload and start within this window count as one episode. `0s` counts every alert |
 | `FAKE_ALERTS_PATH` | | JSON file for `fake` mode |
 | `PUSH_STORE_PATH` | | Directory for VAPID keys and device subscriptions. Empty keeps them in memory |
 | `PUSH_SUBJECT` | `mailto:alerts@sion2k.ru` | Contact URI sent in the VAPID token |
+| `AUTH_ENABLED` | `false` | Shturval OIDC. The process exits without a Kubernetes client and `AUTH_REDIRECT_URL` |
 | `SILENCE_ENABLED` | `false` | Allow silence without OIDC. With OIDC on, silence is already available. `vmselect` never silences |
 
 ## Helm
 
+Shturval install uses the cluster overlay: OIDC, `VMAlertmanager` discovery, and the gateway route.
+
 ```sh
 helm upgrade --install alert-wall charts/shturval-alert-wall \
   --namespace shturval-alert-wall --create-namespace \
-  --set image.tag=latest
+  -f charts/shturval-alert-wall/values.yaml \
+  -f charts/shturval-alert-wall/values-cluster.yaml
 kubectl port-forward -n shturval-alert-wall svc/shturval-alert-wall 8080:8080
+```
+
+`--set auth.enabled=false` leaves discovery and RBAC unchanged and skips `AuthOidcClient`. The wall and API are then open; alert sources stay the same.
+
+```sh
+helm upgrade --install alert-wall charts/shturval-alert-wall \
+  --namespace shturval-alert-wall --create-namespace \
+  -f charts/shturval-alert-wall/values.yaml \
+  -f charts/shturval-alert-wall/values-cluster.yaml \
+  --set auth.enabled=false
 ```
 
 ## Smoke test
@@ -81,7 +96,7 @@ The header toggle enables Web Push for this browser only. Turning it on asks for
 
 ## Browser add-on
 
-`addon/` is one Manifest V3 extension for Chrome and Firefox. It polls each wall you add and shows a toolbar badge plus local notifications. Sign-in stays on that wall: the add-on sends the existing `alertwall_session` cookie and does not start its own OIDC client. Web Push is unchanged. The server image does not include the add-on.
+`addon/` is one Manifest V3 extension for Chrome and Firefox. It polls each wall you add and shows a toolbar badge plus local notifications. Sign-in stays on that wall: the add-on sends the existing `alertwall_session` cookie and does not start its own OIDC client. With authentication disabled there is no session cookie, and the add-on reads the open `/api/snapshot`. Web Push is unchanged. The server image does not include the add-on.
 
 ```sh
 cd addon && npm ci && npm test && npm run build

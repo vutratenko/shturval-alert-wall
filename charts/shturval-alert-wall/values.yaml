@@ -22,6 +22,7 @@ gateway:
       name: sion2k-app-listeners
       namespace: gateway-system
   hostnames: []
+# auth.enabled false skips Shturval OIDC. Discovery and ClusterRole stay as set below.
 auth:
   enabled: false
   redirectUrl: ""
@@ -37,6 +38,7 @@ sources:
   vmselectUrl: ""
   discoveryEnabled: "true"
 pollInterval: 1s
+groupWindow: 15m
 pollTimeout: 5s
 discoveryInterval: 60s
 mood:

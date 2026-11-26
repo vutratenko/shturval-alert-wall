@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { alertChips, boardCards, firingDuration, severityLabel, type BoardFilter } from '../alerts';
-import type { Alert, ClusterSummary, SilenceRef, SilencedAlert } from '../types';
+import { alertChips, boardCards, firingDuration, groupDetail, severityLabel, type BoardFilter } from '../alerts';
+import type { Alert, ClusterSummary, Group, SilenceRef, SilencedAlert } from '../types';
 
 type Filter = BoardFilter;
 
@@ -64,7 +64,7 @@ export function ClusterAlertBoard({ cluster, silenceEnabled, onClose }: Props) {
   }, [cluster]);
 
   const cards = useMemo(
-    () => (cluster ? boardCards(cluster.alerts, cluster.silenced, filter) : []),
+    () => (cluster ? boardCards(cluster.alerts, cluster.silenced, filter, cluster.groups) : []),
     [cluster, filter],
   );
 
@@ -115,6 +115,28 @@ export function ClusterAlertBoard({ cluster, silenceEnabled, onClose }: Props) {
     setConfirmFp(null);
   }
 
+  function silenceControl(alert: Alert) {
+    if (!silenceEnabled) return null;
+    return (
+      <SilenceDraft
+        alert={alert}
+        open={draftFp === alert.fingerprint}
+        duration={duration}
+        comment={comment}
+        busy={busy?.fp === alert.fingerprint}
+        error={draftFp === alert.fingerprint ? error : null}
+        onOpen={() => {
+          setDraftFp(alert.fingerprint);
+          setConfirmFp(null);
+          setError(null);
+        }}
+        onDuration={setDuration}
+        onComment={setComment}
+        onSubmit={() => void silence(alert)}
+      />
+    );
+  }
+
   return (
     <div className="board-overlay" role="dialog" aria-modal="true" aria-label={`Алерты ${cluster.name}`} onClick={onClose}>
       <div className="board-inner" onClick={(e) => e.stopPropagation()}>
@@ -151,29 +173,7 @@ export function ClusterAlertBoard({ cluster, silenceEnabled, onClose }: Props) {
         ) : (
           <div className="alert-grid">
             {cards.map((card) =>
-              card.kind === 'firing' ? (
-                <article key={card.alert.fingerprint} className={`alert-card sev-${card.alert.severity}`}>
-                  <CardBody alert={card.alert} />
-                  {silenceEnabled ? (
-                    <SilenceDraft
-                      alert={card.alert}
-                      open={draftFp === card.alert.fingerprint}
-                      duration={duration}
-                      comment={comment}
-                      busy={busy?.fp === card.alert.fingerprint}
-                      error={draftFp === card.alert.fingerprint ? error : null}
-                      onOpen={() => {
-                        setDraftFp(card.alert.fingerprint);
-                        setConfirmFp(null);
-                        setError(null);
-                      }}
-                      onDuration={setDuration}
-                      onComment={setComment}
-                      onSubmit={() => void silence(card.alert)}
-                    />
-                  ) : null}
-                </article>
-              ) : (
+              card.kind === 'silenced' ? (
                 <article key={card.alert.fingerprint} className={`alert-card silenced sev-${card.alert.severity}`}>
                   <CardBody alert={card.alert} />
                   <div className="silence-note">
@@ -201,12 +201,47 @@ export function ClusterAlertBoard({ cluster, silenceEnabled, onClose }: Props) {
                     />
                   ) : null}
                 </article>
+              ) : card.kind === 'group' ? (
+                <GroupCard
+                  key={card.group.id}
+                  group={card.group}
+                  silence={silenceEnabled ? silenceControl : null}
+                />
+              ) : (
+                <article key={card.alert.fingerprint} className={`alert-card sev-${card.alert.severity}`}>
+                  <CardBody alert={card.alert} />
+                  {silenceControl(card.alert)}
+                </article>
               ),
             )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function GroupCard({
+  group,
+  silence,
+}: {
+  group: Group;
+  silence: ((alert: Alert) => React.ReactNode) | null;
+}) {
+  const detail = groupDetail(group);
+  const rest = group.members.filter((member) => member.fingerprint !== group.root.fingerprint);
+  return (
+    <article className={`alert-card sev-${group.severity}`}>
+      <CardBody alert={group.root} />
+      {detail ? <p className="group-reason">{detail}</p> : null}
+      {silence?.(group.root)}
+      {rest.map((member) => (
+        <div key={member.fingerprint} className="group-member">
+          <span className="group-member-name">{member.alertname}</span>
+          {silence?.(member)}
+        </div>
+      ))}
+    </article>
   );
 }
 

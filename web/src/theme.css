@@ -585,8 +585,23 @@ button {
   line-height: 1.4;
 }
 .alert-card .silence-note p,
-.alert-card .silence-confirm p {
+.alert-card .silence-confirm p,
+.alert-card .group-reason {
   margin: 0;
+}
+.alert-card .group-reason {
+  color: var(--muted);
+  font-size: 14px;
+}
+.alert-card .group-member {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.alert-card .group-member-name {
+  font-size: 16px;
 }
 .alert-card .silence-form,
 .alert-card .silence-confirm {

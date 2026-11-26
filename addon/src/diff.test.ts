@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diffSnapshots, noticesFor } from './diff';
-import type { Alert, Installation, Snapshot } from './types';
+import type { Alert, Group, Installation, Snapshot } from './types';
 
 function alert(partial: Partial<Alert> & Pick<Alert, 'fingerprint' | 'alertname'>): Alert {
   return { severity: 'critical', ...partial };
@@ -136,5 +136,60 @@ describe('noticesFor', () => {
     ]);
     expect(noticesFor({ ...install, notify: 'off', notifyClusterDown: false }, events)).toEqual([]);
     expect(noticesFor({ ...install, notify: 'all' }, [firing('Hint', 'info')])[0]?.body).toBe('Hint · a');
+  });
+});
+
+describe('group diff', () => {
+  const member = (fingerprint: string, alertname: string, severity: Alert['severity']): Alert =>
+    alert({ fingerprint, alertname, severity });
+  const group = (severity: Alert['severity'], members: Alert[]): Group => ({
+    id: 'g',
+    keyKind: 'node',
+    keyValue: 'worker-04',
+    severity,
+    root: members[0],
+    members,
+  });
+  const cluster = (alerts: Alert[], groups: Group[], critical = groups.filter((item) => item.severity === 'critical').length) => ({
+    name: 'a',
+    reachable: true,
+    counts: { critical, warning: 0, info: 0 },
+    alerts,
+    groups,
+  });
+
+  it('opens one cascade and stays quiet when it grows', () => {
+    const root = member('n', 'KubeNodeNotReady', 'warning');
+    const quiet = snap([cluster([], [])]);
+    const opened = snap([cluster([root], [group('warning', [root])])]);
+    expect(diffSnapshots(quiet, opened).map((event) => event.type)).toEqual(['group.opened']);
+    expect(noticesFor({ ...install, notify: 'warning' }, diffSnapshots(quiet, opened))[0]?.body).toBe('KubeNodeNotReady · a');
+
+    const pod = member('p', 'KubePodNotReady', 'warning');
+    const grown = snap([cluster([root, pod], [group('warning', [root, pod])])]);
+    expect(diffSnapshots(opened, grown)).toEqual([]);
+
+    const criticalRoot = member('n', 'KubeNodeNotReady', 'critical');
+    const promoted = snap([cluster([criticalRoot, pod], [group('critical', [criticalRoot, pod])], 1)]);
+    const events = diffSnapshots(grown, promoted);
+    expect(events.map((event) => event.type)).toEqual(['group.promoted']);
+    expect(noticesFor(install, events)[0]?.body).toBe('KubeNodeNotReady · a · critical');
+  });
+
+  it('counts several new groups in one notice', () => {
+    const left = member('1', 'A', 'critical');
+    const right = member('2', 'B', 'critical');
+    const prev = snap([cluster([], [])]);
+    const next = snap([
+      cluster(
+        [left, right],
+        [
+          { ...group('critical', [left]), id: 'g1', keyValue: 'n1' },
+          { ...group('critical', [right]), id: 'g2', keyValue: 'n2' },
+        ],
+        2,
+      ),
+    ]);
+    expect(noticesFor(install, diffSnapshots(prev, next))[0]?.body).toBe('2 новых групп');
   });
 });

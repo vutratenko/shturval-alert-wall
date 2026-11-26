@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { alertChips, boardCards, filterAlerts, firingDuration, sortAlerts } from './alerts';
-import type { Alert, SilencedAlert } from './types';
+import { alertChips, boardCards, filterAlerts, firingDuration, groupDetail, groupReason, sortAlerts } from './alerts';
+import type { Alert, Group, SilencedAlert } from './types';
 
 const base = (overrides: Partial<Alert>): Alert => ({
   fingerprint: 'x',
@@ -62,8 +62,33 @@ describe('boardCards', () => {
 
   it('puts silenced after firing and keeps them out of severity filters', () => {
     const alerts = [base({ fingerprint: 'w', severity: 'warning' })];
-    expect(boardCards(alerts, silenced, 'all').map((card) => card.alert.fingerprint)).toEqual(['w', 's']);
+    expect(boardCards(alerts, silenced, 'all').map((card) => (card.kind === 'group' ? card.group.id : card.alert.fingerprint))).toEqual(['w', 's']);
     expect(boardCards(alerts, silenced, 'critical')).toEqual([]);
     expect(boardCards(alerts, silenced, 'silence').map((card) => card.kind)).toEqual(['silenced']);
+  });
+
+  it('lists groups and keeps silence out of severity filters', () => {
+    const root = base({ fingerprint: 'n', severity: 'critical', alertname: 'KubeNodeNotReady' });
+    const pod = base({ fingerprint: 'p', severity: 'warning', alertname: 'KubePodNotReady' });
+    const group: Group = {
+      id: 'g1',
+      keyKind: 'node',
+      keyValue: 'worker-04',
+      severity: 'critical',
+      startsAt: root.startsAt,
+      root,
+      members: [root, pod],
+    };
+    expect(groupReason(group)).toBe('общий node worker-04');
+    expect(groupDetail(group)).toBe('ещё 1 · общий node worker-04');
+    expect(groupReason({ ...group, keyKind: 'pod', keyValue: 'orders/checkout' })).toBe('общий pod orders/checkout');
+    expect(groupReason({ ...group, keyKind: 'workload', keyValue: 'ml/statefulset/training-worker' })).toBe(
+      'общий statefulset ml/training-worker',
+    );
+    expect(groupReason({ ...group, keyKind: 'alert', keyValue: 'n' })).toBe('');
+    const cards = boardCards([], silenced, 'all', [group]);
+    expect(cards.map((card) => (card.kind === 'group' ? card.group.id : card.alert.fingerprint))).toEqual(['g1', 's']);
+    expect(boardCards([], silenced, 'warning', [group])).toEqual([]);
+    expect(boardCards([], silenced, 'critical', [group])[0]?.kind).toBe('group');
   });
 });

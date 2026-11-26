@@ -35,9 +35,10 @@ export function interpretPoll(install: Installation, prev: Snapshot | null, resp
 
 export async function fetchSnapshot(baseUrl: string, fetchImpl: typeof fetch = fetch): Promise<FetchOutcome> {
   try {
+    // redirect:manual makes a service worker reject the request, so the badge stays "?"
+    // while the popup, an extension page, reads the same wall just fine.
     const response = await fetchImpl(`${baseUrl}/api/snapshot`, {
       credentials: 'include',
-      redirect: 'manual',
     });
     if (response.type === 'opaqueredirect' || response.status === 0) {
       return { status: 401, body: null, redirected: true };

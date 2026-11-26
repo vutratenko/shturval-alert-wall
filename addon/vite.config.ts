@@ -25,6 +25,7 @@ export default defineConfig({
         background: resolve(import.meta.dirname, 'src/background.ts'),
         popup: resolve(import.meta.dirname, 'popup.html'),
         options: resolve(import.meta.dirname, 'options.html'),
+        offscreen: resolve(import.meta.dirname, 'offscreen.html'),
       },
       output: {
         entryFileNames: '[name].js',

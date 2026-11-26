@@ -1,8 +1,9 @@
+import { publishBadge } from './badgeAction';
 import { pickInstallation } from './badge';
 import { loginUrl, wallUrl } from './origin';
 import { parseSnapshot } from './snapshot';
 import { setActive } from './settings';
-import { loadSettings, loadViews, saveSettings } from './storage';
+import { loadSettings, loadViews, saveSettings, saveViews } from './storage';
 import { consumeSSE } from './stream';
 import type { ClusterSummary, Installation, InstallView, Settings, Snapshot } from './types';
 import './ui.css';
@@ -104,6 +105,14 @@ function chosenInstall(): Installation | null {
   return pickInstallation({ ...settings, activeId: null }, views);
 }
 
+async function showLive(install: Installation, snapshot: Snapshot): Promise<void> {
+  if (current?.id !== install.id) return;
+  views = { ...views, [install.id]: { status: 'ok', snapshot } };
+  renderSnapshot(snapshot);
+  await saveViews(views);
+  await publishBadge(settings, views);
+}
+
 function stopStream(): void {
   stream?.abort();
   stream = null;
@@ -146,7 +155,7 @@ async function watch(install: Installation): Promise<void> {
       if (event.event !== 'snapshot' || stream !== controller) return;
       try {
         const snapshot = parseSnapshot(JSON.parse(event.data));
-        if (snapshot) renderSnapshot(snapshot);
+        if (snapshot) void showLive(install, snapshot);
       } catch {
         /* ignore a broken frame */
       }

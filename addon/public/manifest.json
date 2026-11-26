@@ -3,7 +3,7 @@
   "name": "Штурвал — алерты",
   "version": "0.1.0",
   "description": "Бейдж и уведомления стены алертов Штурвала",
-  "permissions": ["storage", "alarms", "notifications"],
+  "permissions": ["storage", "alarms", "notifications", "offscreen"],
   "optional_host_permissions": [
     "https://*/*",
     "http://localhost/*",

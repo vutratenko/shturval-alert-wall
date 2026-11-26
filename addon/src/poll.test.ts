@@ -55,8 +55,13 @@ describe('interpretPoll', () => {
 
 describe('fetchSnapshot', () => {
   it('reads json and treats an opaque redirect as login', async () => {
-    const ok = await fetchSnapshot('https://alerts.example.com', async () => new Response(JSON.stringify(snap('1')), { status: 200 }));
+    let redirectMode: RequestRedirect | undefined;
+    const ok = await fetchSnapshot('https://alerts.example.com', async (_url, init) => {
+      redirectMode = init?.redirect;
+      return new Response(JSON.stringify(snap('1')), { status: 200 });
+    });
     expect(ok).toMatchObject({ status: 200 });
+    expect(redirectMode).toBeUndefined();
     const redirected = await fetchSnapshot('https://alerts.example.com', async () => ({
       status: 0,
       type: 'opaqueredirect',

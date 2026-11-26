@@ -214,12 +214,18 @@ jobs:
           npx web-ext lint --source-dir firefox
           zip -qr "$RUNNER_TEMP/addon-source.zip" src public pack.mjs vite.config.ts tsconfig.json package.json *.html \
             -x 'node_modules/*'
+          issuer=$(printf '%s' "$AMO_JWT_ISSUER" | tr -d '[:space:]')
+          secret=$(printf '%s' "$AMO_JWT_SECRET" | tr -d '[:space:]')
+          case "$issuer" in
+            user:*:*) ;;
+            *) echo "AMO_JWT_ISSUER must be the JWT issuer from the AMO API keys page (user:<id>:<id>), not the secret." >&2; exit 1 ;;
+          esac
           npx web-ext sign \
             --source-dir firefox \
             --artifacts-dir web-ext-artifacts \
             --channel unlisted \
-            --api-key "$AMO_JWT_ISSUER" \
-            --api-secret "$AMO_JWT_SECRET" \
+            --api-key "$issuer" \
+            --api-secret "$secret" \
             --upload-source-code "$RUNNER_TEMP/addon-source.zip" \
             --timeout 600000 \
             --approval-timeout 600000 \

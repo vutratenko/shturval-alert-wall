@@ -171,7 +171,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]')
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -233,64 +233,35 @@ jobs:
           signed=$(find web-ext-artifacts -name '*.xpi' -print -quit)
           test -n "$signed"
           cp "$signed" pack/shturval-alert-wall.xpi
-      - uses: oras-project/setup-oras@v1
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish add-on package
+      - name: Publish add-on files
         working-directory: addon
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OWNER: ${{ github.repository_owner }}
         run: |
-          set -u
-          short="sha-${GITHUB_SHA::7}"
-          ref="ghcr.io/${OWNER}/shturval-alert-wall-addon:${short}"
-          (
-            cd pack
-            oras push "$ref" \
-              shturval-alert-wall.crx:application/octet-stream \
-              shturval-alert-wall.xpi:application/octet-stream
-          )
-          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            oras tag "$ref" latest
+          set -eu
+          test -s pack/shturval-alert-wall.crx
+          test -s pack/shturval-alert-wall.xpi
+          notes="Built from ${GITHUB_SHA}."
+          if gh release view addon >/dev/null 2>&1; then
+            gh release upload addon \
+              pack/shturval-alert-wall.crx \
+              pack/shturval-alert-wall.xpi \
+              --clobber
+            gh release edit addon --target "$GITHUB_SHA" --notes "$notes"
+          else
+            gh release create addon \
+              pack/shturval-alert-wall.crx \
+              pack/shturval-alert-wall.xpi \
+              --target "$GITHUB_SHA" \
+              --title "Browser add-on" \
+              --notes "$notes" \
+              --latest=false
           fi
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            oras tag "$ref" "$GITHUB_REF_NAME"
-          fi
-          pkg=shturval-alert-wall-addon
-          anonymous_pull() {
-            token=$(curl -fsS "https://ghcr.io/token?service=ghcr.io&scope=repository:${OWNER}/${pkg}:pull" | jq -r .token)
-            code=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "Authorization: Bearer ${token}" \
-              -H "Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json" \
-              "https://ghcr.io/v2/${OWNER}/${pkg}/manifests/${short}")
-            [ "$code" = "200" ]
-          }
-          for i in 1 2 3 4 5 6; do
-            if anonymous_pull; then
-              echo "ghcr.io/${OWNER}/${pkg}:${short} is public"
-              exit 0
-            fi
-            gh api --method PATCH \
-              -H "Accept: application/vnd.github+json" \
-              "/users/${OWNER}/packages/container/${pkg}" \
-              -f visibility=public || true
-            gh api --method PATCH \
-              -H "Accept: application/vnd.github+json" \
-              "/user/packages/container/${pkg}" \
-              -f visibility=public || true
-            gh api --method PUT \
-              -H "Accept: application/vnd.github+json" \
-              "/user/packages/container/${pkg}/visibility?visibility=public" || true
-            echo "package not public yet, retry ${i}"
-            sleep 10
-          done
-          if anonymous_pull; then
-            echo "ghcr.io/${OWNER}/${pkg}:${short} is public"
-            exit 0
-          fi
-          echo "Package is still private. Set it to Public at https://github.com/users/${OWNER}/packages/container/package/${pkg}/settings"
-          exit 1
+      - name: Remove the add-on container package
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method DELETE \
+            -H "Accept: application/vnd.github+json" \
+            "/users/${{ github.repository_owner }}/packages/container/shturval-alert-wall-addon"

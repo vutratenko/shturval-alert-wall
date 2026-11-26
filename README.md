@@ -84,11 +84,10 @@ The header toggle enables Web Push for this browser only. Turning it on asks for
 cd addon && npm ci && npm test && npm run build
 ```
 
-CI publishes `shturval-alert-wall.crx` and a Mozilla-signed `shturval-alert-wall.xpi` as `ghcr.io/vutratenko/shturval-alert-wall-addon` (`latest` on `main`, `sha-` plus the short commit). The XPI is signed for self-distribution and is not listed on addons.mozilla.org. The Chrome Web Store is separate.
+CI attaches `shturval-alert-wall.crx` and a Mozilla-signed `shturval-alert-wall.xpi` to the [addon release](https://github.com/vutratenko/shturval-alert-wall/releases/tag/addon). The XPI is signed for self-distribution and is not listed on addons.mozilla.org. The Chrome Web Store is separate.
 
-```sh
-oras pull ghcr.io/vutratenko/shturval-alert-wall-addon:latest
-```
+- [shturval-alert-wall.crx](https://github.com/vutratenko/shturval-alert-wall/releases/download/addon/shturval-alert-wall.crx)
+- [shturval-alert-wall.xpi](https://github.com/vutratenko/shturval-alert-wall/releases/download/addon/shturval-alert-wall.xpi)
 
 Drag the CRX onto `browser://tune` in Yandex Browser, or onto `chrome://extensions` in Chrome. Open the XPI in Firefox 142 or newer. For development, load `addon/dist` as an unpacked extension.
 

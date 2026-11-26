@@ -28,13 +28,13 @@ func TestExpandByClusterLabel(t *testing.T) {
 		}
 	})
 
-	t.Run("single cluster label unchanged", func(t *testing.T) {
+	t.Run("single cluster label", func(t *testing.T) {
 		in := []ClusterFetch{{
 			Name: "victoria-metrics",
 			Alerts: []model.Alert{{Fingerprint: "1", Cluster: "demo214"}},
 		}}
 		got := ExpandByClusterLabel(in)
-		if len(got) != 1 || got[0].Name != "victoria-metrics" {
+		if len(got) != 1 || got[0].Name != "demo214" {
 			t.Fatalf("got %+v", got)
 		}
 	})

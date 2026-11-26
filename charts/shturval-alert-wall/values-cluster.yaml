@@ -1,6 +1,6 @@
 # Cluster overlay (Argo CD). image.tag is bumped by CI on push to main.
 image:
-  tag: sha-79d8c85
+  tag: sha-b254028
 sources:
   mode: alertmanager
   discoveryEnabled: "true"

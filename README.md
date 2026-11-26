@@ -1,5 +1,7 @@
 # Shturval Alert Wall
 
+<img src="web/public/icons/icon-192.png" alt="Shturval Alert Wall — blue pixel fox with a warning indicator" width="96" height="96">
+
 Live multi-cluster **firing** alert dashboard for Shturval (VictoriaMetrics / Alertmanager). One Go binary embeds the React wall UI; no database.
 
 ## Architecture

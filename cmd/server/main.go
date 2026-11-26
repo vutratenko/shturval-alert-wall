@@ -172,19 +172,11 @@ func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refresh
 }
 
 func pollFetches(ctx context.Context, cfg config.Config, p *aggregate.Poller) []aggregate.ClusterFetch {
-	if cfg.SourceMode == "vmselect" {
-		fetches := p.Poll(ctx)
-		if len(fetches) != 1 {
-			return fetches
-		}
-		byCluster := source.SplitByCluster(fetches[0].Alerts)
-		out := make([]aggregate.ClusterFetch, 0, len(byCluster))
-		for name, alerts := range byCluster {
-			out = append(out, aggregate.ClusterFetch{Name: name, Reachable: fetches[0].Reachable, Alerts: alerts})
-		}
-		return out
+	fetches := p.Poll(ctx)
+	if cfg.SourceMode == "vmselect" || cfg.SourceMode == "alertmanager" {
+		return aggregate.ExpandByClusterLabel(fetches)
 	}
-	return p.Poll(ctx)
+	return fetches
 }
 
 func buildSources(cfg config.Config, refresh *discovery.Refreshing) []source.Source {

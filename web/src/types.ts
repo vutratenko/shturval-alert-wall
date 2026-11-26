@@ -16,18 +16,38 @@ export type Alert = {
   startsAt: string;
 };
 
+export type Matcher = {
+  name: string;
+  value: string;
+  isRegex?: boolean;
+  isEqual?: boolean;
+};
+
+export type SilenceRef = {
+  id: string;
+  endsAt: string;
+  createdBy?: string;
+  comment?: string;
+  matchers?: Matcher[];
+};
+
+export type SilencedAlert = Alert & { silences: SilenceRef[] };
+
 export type Counts = { critical: number; warning: number; info: number };
 
 export type ClusterSummary = {
   name: string;
+  source?: string;
   reachable: boolean;
   counts: Counts;
   alerts: Alert[];
+  silenced?: SilencedAlert[];
 };
 
 export type Snapshot = {
   generatedAt: string;
   mood: Mood;
+  silence?: boolean;
   clusters: ClusterSummary[];
 };
 

@@ -26,15 +26,33 @@ func TestExpandByClusterLabel(t *testing.T) {
 		if len(got) != 2 {
 			t.Fatalf("got %d clusters", len(got))
 		}
+		for _, c := range got {
+			if c.Source != "victoria-metrics" {
+				t.Fatalf("source %+v", c)
+			}
+		}
 	})
 
 	t.Run("single cluster label", func(t *testing.T) {
 		in := []ClusterFetch{{
-			Name: "victoria-metrics",
+			Name:   "victoria-metrics",
 			Alerts: []model.Alert{{Fingerprint: "1", Cluster: "demo214"}},
 		}}
 		got := ExpandByClusterLabel(in)
-		if len(got) != 1 || got[0].Name != "demo214" {
+		if len(got) != 1 || got[0].Name != "demo214" || got[0].Source != "victoria-metrics" {
+			t.Fatalf("got %+v", got)
+		}
+	})
+
+	t.Run("splits silenced only", func(t *testing.T) {
+		in := []ClusterFetch{{
+			Name: "victoria-metrics",
+			Silenced: []model.SilencedAlert{{
+				Alert: model.Alert{Fingerprint: "1", Cluster: "demo214"},
+			}},
+		}}
+		got := ExpandByClusterLabel(in)
+		if len(got) != 1 || got[0].Name != "demo214" || got[0].Source != "victoria-metrics" || len(got[0].Silenced) != 1 {
 			t.Fatalf("got %+v", got)
 		}
 	})

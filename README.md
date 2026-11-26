@@ -4,7 +4,7 @@ Live multi-cluster **firing** alert dashboard for Shturval (VictoriaMetrics / Al
 
 ## Architecture
 
-- Discovers `VMAlertmanager` CRs (plus optional static URLs) and polls `GET /api/v2/alerts?active=true&silenced=false&inhibited=false` per cluster.
+- Discovers `VMAlertmanager` CRs (plus optional static URLs) and polls `GET /api/v2/alerts?active=true&silenced=true&inhibited=false` per cluster. Silenced firing alerts stay on the cluster board and stay out of tile counts, the fox, push, and the add-on badge.
 - Fallback mode `SOURCE_MODE=vmselect` queries `ALERTS{alertstate="firing"}` on VMSelect.
 - Browser uses SSE (`/api/stream`) for snapshots and diff events.
 
@@ -23,7 +23,7 @@ Requires Go 1.24+, Node 22+.
 
 ```sh
 make test
-SOURCE_MODE=fake FAKE_ALERTS_PATH=config/samples/fake-alerts.json make run
+SOURCE_MODE=fake SILENCE_ENABLED=true FAKE_ALERTS_PATH=config/samples/fake-alerts.json make run
 ```
 
 Open [http://localhost:8080/wall](http://localhost:8080/wall).
@@ -35,6 +35,8 @@ Open [http://localhost:8080/wall](http://localhost:8080/wall).
 | GET | `/api/healthz` | Liveness (`status`, `service: shturval-alert-wall`) |
 | GET | `/api/snapshot` | Current aggregated state |
 | GET | `/api/stream` | SSE (snapshot + events) |
+| POST | `/api/silences` | Silence one alert (`source`, `fingerprint`, `duration` `1h`/`4h`/`24h`, `comment`). Matchers come from that alert's labels |
+| DELETE | `/api/silences/{id}?source=` | Expire a silence that is attached to a visible alert |
 | GET | `/metrics` | Prometheus metrics |
 
 ### Environment
@@ -48,6 +50,7 @@ Open [http://localhost:8080/wall](http://localhost:8080/wall).
 | `FAKE_ALERTS_PATH` | | JSON file for `fake` mode |
 | `PUSH_STORE_PATH` | | Directory for VAPID keys and device subscriptions. Empty keeps them in memory |
 | `PUSH_SUBJECT` | `mailto:alerts@sion2k.ru` | Contact URI sent in the VAPID token |
+| `SILENCE_ENABLED` | `false` | Allow silence without OIDC. With OIDC on, silence is already available. `vmselect` never silences |
 
 ## Helm
 

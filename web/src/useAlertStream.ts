@@ -32,10 +32,9 @@ export function useAlertStream() {
     };
 
     es.addEventListener('snapshot', onSnapshot as EventListener);
-    es.addEventListener('alert.firing', onEvent as EventListener);
-    es.addEventListener('alert.resolved', onEvent as EventListener);
-    es.addEventListener('cluster.down', onEvent as EventListener);
-    es.addEventListener('cluster.up', onEvent as EventListener);
+    for (const name of ['alert.firing', 'alert.resolved', 'alert.silenced', 'alert.unsilenced', 'cluster.down', 'cluster.up']) {
+      es.addEventListener(name, onEvent as EventListener);
+    }
     let loginStarted = false;
     es.onerror = () => {
       setLive(false);

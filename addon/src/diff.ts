@@ -29,15 +29,26 @@ export function diffSnapshots(prev: Snapshot | null, next: Snapshot): WallEvent[
     if (!prevCluster.reachable && nextCluster.reachable) {
       events.push({ type: 'cluster.up', cluster: nextCluster.name });
     }
-    const prevFingerprints = new Set(prevCluster.alerts.map((alert) => alert.fingerprint));
-    const nextFingerprints = new Set(nextCluster.alerts.map((alert) => alert.fingerprint));
+    const prevFiring = fingerprints(prevCluster.alerts);
+    const prevSilenced = fingerprints(prevCluster.silenced);
+    const nextFiring = fingerprints(nextCluster.alerts);
+    const nextSilenced = fingerprints(nextCluster.silenced);
     for (const alert of nextCluster.alerts) {
-      if (!prevFingerprints.has(alert.fingerprint)) {
+      const wasFiring = prevFiring.has(alert.fingerprint);
+      const wasSilenced = prevSilenced.has(alert.fingerprint);
+      if (!wasFiring && !wasSilenced) {
+        events.push({ type: 'alert.firing', cluster: nextCluster.name, alert });
+      } else if (wasSilenced) {
         events.push({ type: 'alert.firing', cluster: nextCluster.name, alert });
       }
     }
     for (const alert of prevCluster.alerts) {
-      if (!nextFingerprints.has(alert.fingerprint)) {
+      if (!nextFiring.has(alert.fingerprint) && !nextSilenced.has(alert.fingerprint)) {
+        events.push({ type: 'alert.resolved', cluster: nextCluster.name, alert });
+      }
+    }
+    for (const alert of prevCluster.silenced ?? []) {
+      if (!nextFiring.has(alert.fingerprint) && !nextSilenced.has(alert.fingerprint)) {
         events.push({ type: 'alert.resolved', cluster: nextCluster.name, alert });
       }
     }
@@ -49,6 +60,10 @@ export function diffSnapshots(prev: Snapshot | null, next: Snapshot): WallEvent[
     }
   }
   return events;
+}
+
+function fingerprints(alerts: { fingerprint: string }[] | undefined): Set<string> {
+  return new Set((alerts ?? []).map((alert) => alert.fingerprint));
 }
 
 function severityAllowed(level: NotifyLevel, severity: Alert['severity']): boolean {

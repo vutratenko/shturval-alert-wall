@@ -8,6 +8,10 @@ function label(ev: StreamEvent): string {
       return ev.alert?.alertname ?? 'алерт';
     case 'alert.resolved':
       return `${ev.alert?.alertname ?? 'алерт'} погас`;
+    case 'alert.silenced':
+      return `${ev.alert?.alertname ?? 'алерт'} заглушен`;
+    case 'alert.unsilenced':
+      return `${ev.alert?.alertname ?? 'алерт'} — silence снят`;
     case 'cluster.down':
       return 'кластер недоступен';
     case 'cluster.up':

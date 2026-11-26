@@ -6,15 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/vutratenko/shturval-alert-wall/internal/mood"
 	"github.com/vutratenko/shturval-alert-wall/internal/model"
+	"github.com/vutratenko/shturval-alert-wall/internal/mood"
 	"github.com/vutratenko/shturval-alert-wall/internal/source"
 )
 
 type ClusterFetch struct {
 	Name      string
+	Source    string
 	Reachable bool
 	Alerts    []model.Alert
+	Silenced  []model.SilencedAlert
 	Err       error
 }
 
@@ -42,8 +44,12 @@ func Build(fetches []ClusterFetch, at time.Time, th mood.Thresholds) model.Snaps
 		total.Critical += counts.Critical
 		total.Warning += counts.Warning
 		total.Info += counts.Info
+		sourceName := f.Source
+		if sourceName == "" {
+			sourceName = f.Name
+		}
 		clusters = append(clusters, model.ClusterSummary{
-			Name: f.Name, Reachable: f.Reachable, Counts: counts, Alerts: alerts,
+			Name: f.Name, Source: sourceName, Reachable: f.Reachable, Counts: counts, Alerts: alerts, Silenced: f.Silenced,
 		})
 	}
 	sortClusters(clusters)
@@ -74,6 +80,22 @@ func sortClusters(clusters []model.ClusterSummary) {
 
 func severityScore(c model.Counts) int {
 	return c.Critical*100 + c.Warning*10 + c.Info
+}
+
+func indexAlerts(alerts []model.Alert) map[string]model.Alert {
+	out := make(map[string]model.Alert, len(alerts))
+	for _, a := range alerts {
+		out[a.Fingerprint] = a
+	}
+	return out
+}
+
+func indexSilenced(items []model.SilencedAlert) map[string]model.Alert {
+	out := make(map[string]model.Alert, len(items))
+	for _, s := range items {
+		out[s.Fingerprint] = s.Alert
+	}
+	return out
 }
 
 func Diff(prev, next model.Snapshot) []Event {
@@ -108,25 +130,43 @@ func Diff(prev, next model.Snapshot) []Event {
 		if !pc.Reachable && nc.Reachable {
 			out = append(out, Event{Type: "cluster.up", Cluster: name, At: now})
 		}
-		prevFP := map[string]model.Alert{}
-		for _, a := range pc.Alerts {
-			prevFP[a.Fingerprint] = a
-		}
-		nextFP := map[string]model.Alert{}
-		for _, a := range nc.Alerts {
-			nextFP[a.Fingerprint] = a
-		}
-		for fp, a := range nextFP {
-			if _, exists := prevFP[fp]; !exists {
-				aa := a
+		prevActive := indexAlerts(pc.Alerts)
+		prevSilenced := indexSilenced(pc.Silenced)
+		nextActive := indexAlerts(nc.Alerts)
+		nextSilenced := indexSilenced(nc.Silenced)
+		for fp, a := range nextActive {
+			_, wasActive := prevActive[fp]
+			_, wasSilenced := prevSilenced[fp]
+			aa := a
+			if wasSilenced {
+				out = append(out, Event{Type: "alert.unsilenced", Cluster: name, Alert: &aa, At: now})
+				out = append(out, Event{Type: "alert.firing", Cluster: name, Alert: &aa, At: now})
+				continue
+			}
+			if !wasActive {
 				out = append(out, Event{Type: "alert.firing", Cluster: name, Alert: &aa, At: now})
 			}
 		}
-		for fp, a := range prevFP {
-			if _, exists := nextFP[fp]; !exists {
-				aa := a
-				out = append(out, Event{Type: "alert.resolved", Cluster: name, Alert: &aa, At: now})
+		for fp, a := range prevActive {
+			if _, still := nextActive[fp]; still {
+				continue
 			}
+			aa := a
+			if silenced, nowSilenced := nextSilenced[fp]; nowSilenced {
+				s := silenced
+				out = append(out, Event{Type: "alert.silenced", Cluster: name, Alert: &s, At: now})
+				continue
+			}
+			out = append(out, Event{Type: "alert.resolved", Cluster: name, Alert: &aa, At: now})
+		}
+		for fp, a := range prevSilenced {
+			_, stillActive := nextActive[fp]
+			_, stillSilenced := nextSilenced[fp]
+			if stillActive || stillSilenced {
+				continue
+			}
+			aa := a
+			out = append(out, Event{Type: "alert.resolved", Cluster: name, Alert: &aa, At: now})
 		}
 	}
 	for name, pc := range prevClusters {
@@ -158,8 +198,12 @@ func (p *Poller) Poll(ctx context.Context) []ClusterFetch {
 			defer wg.Done()
 			cctx, cancel := context.WithTimeout(ctx, p.Timeout)
 			defer cancel()
-			alerts, err := src.Fetch(cctx)
-			cf := ClusterFetch{Name: src.Cluster(), Alerts: alerts, Reachable: err == nil, Err: err}
+			batch, err := src.Fetch(cctx)
+			cf := ClusterFetch{
+				Name: src.Cluster(), Source: src.Cluster(),
+				Alerts: batch.Alerts, Silenced: batch.Silenced,
+				Reachable: err == nil, Err: err,
+			}
 			out[i] = cf
 		}()
 	}

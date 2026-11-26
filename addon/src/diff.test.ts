@@ -52,6 +52,22 @@ describe('diffSnapshots', () => {
     ]);
   });
 
+  it('keeps a silenced alert off the badge and reports it again when the silence ends', () => {
+    const silenced = snap([
+      {
+        name: 'a',
+        reachable: true,
+        counts: { critical: 0, warning: 0, info: 0 },
+        alerts: [],
+        silenced: [alert({ fingerprint: '1', alertname: 'DiskFull' })],
+      },
+    ]);
+    expect(diffSnapshots(base, silenced)).toEqual([]);
+    expect(diffSnapshots(silenced, base)).toEqual([
+      { type: 'alert.firing', cluster: 'a', alert: alert({ fingerprint: '1', alertname: 'DiskFull' }) },
+    ]);
+  });
+
   it('reports cluster reachability and a cluster that disappeared', () => {
     const down = snap([
       { name: 'a', reachable: false, counts: { critical: 0, warning: 0, info: 0 }, alerts: [] },

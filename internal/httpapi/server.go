@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/vutratenko/shturval-alert-wall/internal/auth"
 	"github.com/vutratenko/shturval-alert-wall/internal/push"
+	"github.com/vutratenko/shturval-alert-wall/internal/source"
 )
 
 func init() {
@@ -20,9 +21,11 @@ func init() {
 }
 
 type Server struct {
-	Hub    *Hub
-	Static fs.FS
-	Push   *push.Store
+	Hub     *Hub
+	Static  fs.FS
+	Push    *push.Store
+	Sources func() []source.Source
+	Silence bool
 }
 
 func (s *Server) Handler() http.Handler {
@@ -32,6 +35,8 @@ func (s *Server) Handler() http.Handler {
 	})
 	m.HandleFunc("GET /api/snapshot", s.snapshot)
 	m.HandleFunc("GET /api/stream", s.stream)
+	m.HandleFunc("POST /api/silences", s.createSilence)
+	m.HandleFunc("DELETE /api/silences/{id}", s.expireSilence)
 	m.HandleFunc("GET /api/push/vapid", s.pushVapid)
 	m.HandleFunc("PUT /api/push/subscription", s.putSubscription)
 	m.HandleFunc("DELETE /api/push/subscription", s.deleteSubscription)

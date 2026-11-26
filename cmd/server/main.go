@@ -42,7 +42,15 @@ func main() {
 		slog.Error("push store", "err", err)
 		os.Exit(1)
 	}
-	api := &httpapi.Server{Hub: hub, Static: static, Push: pushStore}
+	fakeSrc := prepareFake(cfg)
+	refresh := &discovery.Refreshing{Discoverer: discovery.Discoverer{Static: cfg.StaticSources}}
+	api := &httpapi.Server{
+		Hub:     hub,
+		Static:  static,
+		Push:    pushStore,
+		Silence: cfg.SilenceAllowed(),
+		Sources: func() []source.Source { return buildSources(cfg, refresh, fakeSrc) },
+	}
 	dispatcher := &push.Dispatcher{
 		Store: pushStore,
 		Send: (&push.WebSender{
@@ -56,7 +64,6 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	refresh := &discovery.Refreshing{Discoverer: discovery.Discoverer{Static: cfg.StaticSources}}
 	var k8s client.Reader
 	needK8s := (cfg.DiscoveryEnabled && cfg.SourceMode != "fake" && cfg.SourceMode != "vmselect") || cfg.Auth.Enabled
 	if needK8s {
@@ -98,7 +105,7 @@ func main() {
 
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 
-	go runPoller(ctx, cfg, refresh, hub, dispatcher)
+	go runPoller(ctx, cfg, refresh, hub, dispatcher, fakeSrc)
 	go func() {
 		slog.Info("listening", "addr", addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -112,7 +119,7 @@ func main() {
 	_ = srv.Shutdown(shutdown)
 }
 
-func runPoller(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub, alerts *push.Dispatcher) {
+func runPoller(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub, alerts *push.Dispatcher, fakeSrc *fake.FileSource) {
 	_ = refreshSources(ctx, cfg, refresh)
 	if cfg.DiscoveryEnabled {
 		go func() {
@@ -130,13 +137,13 @@ func runPoller(ctx context.Context, cfg config.Config, refresh *discovery.Refres
 	}
 	t := time.NewTicker(cfg.PollInterval)
 	defer t.Stop()
-	pollOnce(ctx, cfg, refresh, hub, alerts)
+	pollOnce(ctx, cfg, refresh, hub, alerts, fakeSrc)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			pollOnce(ctx, cfg, refresh, hub, alerts)
+			pollOnce(ctx, cfg, refresh, hub, alerts, fakeSrc)
 		}
 	}
 }
@@ -148,9 +155,9 @@ func refreshSources(ctx context.Context, cfg config.Config, refresh *discovery.R
 	return refresh.Refresh(ctx)
 }
 
-func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub, alerts *push.Dispatcher) {
+func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refreshing, hub *httpapi.Hub, alerts *push.Dispatcher, fakeSrc *fake.FileSource) {
 	start := time.Now()
-	sources := buildSources(cfg, refresh)
+	sources := buildSources(cfg, refresh, fakeSrc)
 	if len(sources) == 0 {
 		slog.Warn("no alert sources configured")
 	}
@@ -164,6 +171,7 @@ func pollOnce(ctx context.Context, cfg config.Config, refresh *discovery.Refresh
 		metrics.SourceUp.WithLabelValues(f.Name).Set(v)
 	}
 	snap := aggregate.Build(fetches, time.Now().UTC(), cfg.Mood)
+	snap.Silence = cfg.SilenceAllowed()
 	events := hub.Update(snap)
 	if alerts != nil {
 		go alerts.Notify(ctx, events)
@@ -179,18 +187,13 @@ func pollFetches(ctx context.Context, cfg config.Config, p *aggregate.Poller) []
 	return fetches
 }
 
-func buildSources(cfg config.Config, refresh *discovery.Refreshing) []source.Source {
+func buildSources(cfg config.Config, refresh *discovery.Refreshing, fakeSrc *fake.FileSource) []source.Source {
 	switch cfg.SourceMode {
 	case "fake":
-		if cfg.FakeAlertsPath == "" {
-			for _, p := range []string{"config/samples/fake-alerts.json", "/config/samples/fake-alerts.json"} {
-				if _, err := os.Stat(p); err == nil {
-					return []source.Source{&fake.FileSource{ClusterName: "demo", Path: p}}
-				}
-			}
-			return []source.Source{&fake.FileSource{ClusterName: "demo", Path: "config/samples/fake-alerts.json"}}
+		if fakeSrc == nil {
+			return nil
 		}
-		return []source.Source{&fake.FileSource{ClusterName: "demo", Path: cfg.FakeAlertsPath}}
+		return []source.Source{fakeSrc}
 	case "vmselect":
 		if cfg.VMSelectURL == "" {
 			slog.Error("VMSELECT_URL required")
@@ -200,6 +203,25 @@ func buildSources(cfg config.Config, refresh *discovery.Refreshing) []source.Sou
 	default:
 		return refresh.Snapshot()
 	}
+}
+
+func prepareFake(cfg config.Config) *fake.FileSource {
+	if cfg.SourceMode != "fake" {
+		return nil
+	}
+	path := cfg.FakeAlertsPath
+	if path == "" {
+		for _, p := range []string{"config/samples/fake-alerts.json", "/config/samples/fake-alerts.json"} {
+			if _, err := os.Stat(p); err == nil {
+				path = p
+				break
+			}
+		}
+		if path == "" {
+			path = "config/samples/fake-alerts.json"
+		}
+	}
+	return &fake.FileSource{ClusterName: "demo", Path: path}
 }
 
 // clientcmdRestConfig loads kubeconfig when not in-cluster.

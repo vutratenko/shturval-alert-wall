@@ -21,3 +21,22 @@ func TestNormalizeSeverity(t *testing.T) {
 		}
 	}
 }
+
+func TestMatchersFromLabels(t *testing.T) {
+	got := MatchersFromLabels(map[string]string{
+		"alertname": "DiskFull",
+		"namespace": "orders",
+		"":          "skip",
+		"pod":       "  ",
+	})
+	want := []Matcher{
+		{Name: "alertname", Value: "DiskFull", IsEqual: true},
+		{Name: "namespace", Value: "orders", IsEqual: true},
+	}
+	if !SameMatchers(got, want) || !SameMatchers(want, got) {
+		t.Fatalf("%+v", got)
+	}
+	if SameMatchers(nil, nil) || SameMatchers(got, []Matcher{want[0]}) {
+		t.Fatal("empty or partial sets must not match")
+	}
+}

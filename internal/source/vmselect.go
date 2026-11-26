@@ -31,14 +31,14 @@ type vmQueryResult struct {
 	} `json:"data"`
 }
 
-func (v *VMSelect) Fetch(ctx context.Context) ([]model.Alert, error) {
+func (v *VMSelect) Fetch(ctx context.Context) (Batch, error) {
 	client := v.Client
 	if client == nil {
 		client = http.DefaultClient
 	}
 	u, err := url.Parse(strings.TrimRight(v.SelectURL, "/"))
 	if err != nil {
-		return nil, err
+		return Batch{}, err
 	}
 	u.Path = strings.TrimRight(u.Path, "/") + "/api/v1/query"
 	q := u.Query()
@@ -46,22 +46,22 @@ func (v *VMSelect) Fetch(ctx context.Context) ([]model.Alert, error) {
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, err
+		return Batch{}, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return Batch{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("vmselect: %s", resp.Status)
+		return Batch{}, fmt.Errorf("vmselect: %s", resp.Status)
 	}
 	var raw vmQueryResult
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, err
+		return Batch{}, err
 	}
 	if raw.Status != "success" {
-		return nil, fmt.Errorf("vmselect: status %s", raw.Status)
+		return Batch{}, fmt.Errorf("vmselect: status %s", raw.Status)
 	}
 	out := make([]model.Alert, 0, len(raw.Data.Result))
 	for _, r := range raw.Data.Result {
@@ -92,7 +92,7 @@ func (v *VMSelect) Fetch(ctx context.Context) ([]model.Alert, error) {
 			StartsAt:    starts,
 		})
 	}
-	return out, nil
+	return Batch{Alerts: out}, nil
 }
 
 func fingerprintFromMetric(m map[string]string) string {
@@ -108,17 +108,4 @@ func parseFloat(s string) (float64, error) {
 	var f float64
 	_, err := fmt.Sscanf(s, "%f", &f)
 	return f, err
-}
-
-// SplitByCluster turns a flat vmselect result into per-cluster fetches (used by orchestrator).
-func SplitByCluster(alerts []model.Alert) map[string][]model.Alert {
-	out := map[string][]model.Alert{}
-	for _, a := range alerts {
-		c := a.Cluster
-		if c == "" {
-			c = "unknown"
-		}
-		out[c] = append(out[c], a)
-	}
-	return out
 }

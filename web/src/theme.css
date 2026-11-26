@@ -575,6 +575,65 @@ button {
 .alert-card .links a:hover {
   text-decoration: underline;
 }
+.alert-card.silenced {
+  opacity: 0.72;
+}
+.alert-card .silence-note,
+.alert-card .silence-confirm {
+  color: var(--guide);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.alert-card .silence-note p,
+.alert-card .silence-confirm p {
+  margin: 0;
+}
+.alert-card .silence-form,
+.alert-card .silence-confirm {
+  display: grid;
+  gap: 8px;
+}
+.alert-card .silence-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.alert-card .silence-form textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.06);
+}
+.alert-card .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.alert-card .btn-quiet {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.alert-card .btn-quiet:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.alert-card .form-error {
+  margin: 0;
+  color: var(--crit);
+  font-size: 14px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fox-backdrop .mood-glow,

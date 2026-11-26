@@ -15,6 +15,6 @@ docker-build:
 helm-template:
 	helm template alert-wall charts/shturval-alert-wall
 run:
-	SOURCE_MODE=fake FAKE_ALERTS_PATH=config/samples/fake-alerts.json go run ./cmd/server
+	SOURCE_MODE=fake SILENCE_ENABLED=true FAKE_ALERTS_PATH=config/samples/fake-alerts.json go run ./cmd/server
 smoke-test:
 	./scripts/smoke-test.sh

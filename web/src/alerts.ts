@@ -1,4 +1,4 @@
-import type { Alert, Bucket, Counts, Snapshot } from './types';
+import type { Alert, Bucket, Counts, SilencedAlert, Snapshot } from './types';
 
 const rank: Record<Bucket, number> = { critical: 0, warning: 1, info: 2 };
 
@@ -58,6 +58,22 @@ export function filterAlerts(alerts: Alert[], filter: Bucket | 'all'): Alert[] {
   const sorted = sortAlerts(alerts);
   if (filter === 'all') return sorted;
   return sorted.filter((a) => a.severity === filter);
+}
+
+export type BoardFilter = Bucket | 'all' | 'silence';
+
+export type BoardCard =
+  | { kind: 'firing'; alert: Alert }
+  | { kind: 'silenced'; alert: SilencedAlert };
+
+export function boardCards(alerts: Alert[], silenced: SilencedAlert[] | undefined, filter: BoardFilter): BoardCard[] {
+  const quiet = silenced ?? [];
+  if (filter === 'silence') return quiet.map((alert) => ({ kind: 'silenced', alert }));
+  const firing = filterAlerts(alerts, filter === 'all' ? 'all' : filter).map(
+    (alert) => ({ kind: 'firing', alert }) as BoardCard,
+  );
+  if (filter !== 'all') return firing;
+  return [...firing, ...quiet.map((alert) => ({ kind: 'silenced', alert }) as BoardCard)];
 }
 
 export function severityLabel(sev: Bucket): string {

@@ -5,7 +5,7 @@ import { FoxBackdrop, FoxStatus } from './components/Fox';
 import { PushToggle } from './components/PushToggle';
 import { TileGrid } from './components/TileGrid';
 import { nextMood, type HysteresisState } from './moodHysteresis';
-import type { ClusterSummary, Mood } from './types';
+import type { Mood } from './types';
 import { useAlertStream } from './useAlertStream';
 import { wallScaleForViewport } from './wallScale';
 
@@ -43,8 +43,14 @@ export function App() {
   const stageRef = useRef<HTMLDivElement>(null);
   useWallScale(stageRef);
   const { snapshot, events, live } = useAlertStream();
-  const [selected, setSelected] = useState<ClusterSummary | null>(null);
+  const [selectedName, setSelectedName] = useState<string | null>(null);
   const foxMood = useFoxMood(snapshot?.mood);
+  const selected = snapshot?.clusters.find((cluster) => cluster.name === selectedName) ?? null;
+
+  useEffect(() => {
+    if (!selectedName || !snapshot) return;
+    if (!snapshot.clusters.some((cluster) => cluster.name === selectedName)) setSelectedName(null);
+  }, [snapshot, selectedName]);
 
   const timeLabel = snapshot?.generatedAt
     ? new Date(snapshot.generatedAt).toLocaleTimeString('ru-RU')
@@ -68,10 +74,14 @@ export function App() {
         </header>
         <FoxStatus mood={foxMood} snapshot={snapshot} />
         <main className="wall-main">
-          <TileGrid clusters={snapshot?.clusters ?? []} onSelect={setSelected} />
+          <TileGrid clusters={snapshot?.clusters ?? []} onSelect={(cluster) => setSelectedName(cluster.name)} />
           <EventFeed events={events} />
         </main>
-        <ClusterAlertBoard cluster={selected} onClose={() => setSelected(null)} />
+        <ClusterAlertBoard
+          cluster={selected}
+          silenceEnabled={snapshot?.silence === true}
+          onClose={() => setSelectedName(null)}
+        />
       </div>
     </div>
   );

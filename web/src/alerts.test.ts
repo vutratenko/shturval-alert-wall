@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { alertChips, filterAlerts, firingDuration, sortAlerts } from './alerts';
-import type { Alert } from './types';
+import { alertChips, boardCards, filterAlerts, firingDuration, sortAlerts } from './alerts';
+import type { Alert, SilencedAlert } from './types';
 
 const base = (overrides: Partial<Alert>): Alert => ({
   fingerprint: 'x',
@@ -52,5 +52,18 @@ describe('filterAlerts', () => {
       base({ fingerprint: 'w', severity: 'warning' }),
     ];
     expect(filterAlerts(alerts, 'critical').map((a) => a.fingerprint)).toEqual(['c']);
+  });
+});
+
+describe('boardCards', () => {
+  const silenced: SilencedAlert[] = [
+    { ...base({ fingerprint: 's', severity: 'critical' }), silences: [{ id: 'sil-1', endsAt: '2026-03-20T18:00:00Z' }] },
+  ];
+
+  it('puts silenced after firing and keeps them out of severity filters', () => {
+    const alerts = [base({ fingerprint: 'w', severity: 'warning' })];
+    expect(boardCards(alerts, silenced, 'all').map((card) => card.alert.fingerprint)).toEqual(['w', 's']);
+    expect(boardCards(alerts, silenced, 'critical')).toEqual([]);
+    expect(boardCards(alerts, silenced, 'silence').map((card) => card.kind)).toEqual(['silenced']);
   });
 });

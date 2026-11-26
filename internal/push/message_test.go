@@ -32,3 +32,12 @@ func TestMessage_ignoresEmptyDiff(t *testing.T) {
 		t.Fatal("expected no message")
 	}
 }
+
+func TestMessage_ignoresSilence(t *testing.T) {
+	if _, _, ok := Message([]aggregate.Event{
+		{Type: "alert.silenced", Cluster: "prod", Alert: &model.Alert{Alertname: "DiskFull"}},
+		{Type: "alert.unsilenced", Cluster: "prod", Alert: &model.Alert{Alertname: "DiskFull"}},
+	}); ok {
+		t.Fatal("silence must not notify")
+	}
+}

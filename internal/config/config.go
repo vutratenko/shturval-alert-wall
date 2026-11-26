@@ -34,6 +34,7 @@ type Config struct {
 	Auth             AuthConfig
 	PushStorePath    string
 	PushSubject      string
+	SilenceEnabled   bool
 }
 
 func Load() Config {
@@ -54,8 +55,9 @@ func Load() Config {
 			Namespace:      env("POD_NAMESPACE", "shturval-alert-wall"),
 			SessionTTL:     durationEnv("AUTH_SESSION_TTL", 24*time.Hour),
 		},
-		PushStorePath: env("PUSH_STORE_PATH", ""),
-		PushSubject:   env("PUSH_SUBJECT", "mailto:alerts@sion2k.ru"),
+		PushStorePath:  env("PUSH_STORE_PATH", ""),
+		PushSubject:    env("PUSH_SUBJECT", "mailto:alerts@sion2k.ru"),
+		SilenceEnabled: env("SILENCE_ENABLED", "false") == "true",
 	}
 	if b64 := env("AUTH_COOKIE_SECRET", ""); b64 != "" {
 		if b, err := base64.StdEncoding.DecodeString(b64); err == nil {
@@ -90,6 +92,14 @@ func Load() Config {
 		}
 	}
 	return cfg
+}
+
+// SilenceAllowed is true for Alertmanager and fake when OIDC or SILENCE_ENABLED is on.
+func (c Config) SilenceAllowed() bool {
+	if c.SourceMode == "vmselect" {
+		return false
+	}
+	return c.Auth.Enabled || c.SilenceEnabled
 }
 
 func env(k, def string) string {

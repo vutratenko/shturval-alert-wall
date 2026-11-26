@@ -18,6 +18,7 @@ export type ClusterSummary = {
   reachable: boolean;
   counts: Counts;
   alerts: Alert[];
+  silenced?: Alert[];
 };
 
 export type Snapshot = {

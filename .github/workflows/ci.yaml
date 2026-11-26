@@ -92,15 +92,45 @@ jobs:
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
         run: |
+          set -u
+          pkg=shturval-alert-wall
+          tag="sha-${GITHUB_SHA::7}"
+          anonymous_pull() {
+            token=$(curl -fsS "https://ghcr.io/token?service=ghcr.io&scope=repository:${OWNER}/${pkg}:pull" | jq -r .token)
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer ${token}" \
+              -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
+              "https://ghcr.io/v2/${OWNER}/${pkg}/manifests/${tag}")
+            [ "$code" = "200" ]
+          }
           for i in 1 2 3 4 5 6; do
-            if gh api --method PUT \
-              -H "Accept: application/vnd.github+json" \
-              "/user/packages/container/shturval-alert-wall/visibility?visibility=public"; then
+            if anonymous_pull; then
+              echo "ghcr.io/${OWNER}/${pkg}:${tag} is public"
               exit 0
             fi
+            # GITHUB_TOKEN is not the package owner, so /user/ often 404s.
+            # The owner route is the one that can flip a user-scoped package.
+            gh api --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              "/users/${OWNER}/packages/container/${pkg}" \
+              -f visibility=public || true
+            gh api --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              "/user/packages/container/${pkg}" \
+              -f visibility=public || true
+            gh api --method PUT \
+              -H "Accept: application/vnd.github+json" \
+              "/user/packages/container/${pkg}/visibility?visibility=public" || true
+            echo "package not public yet, retry ${i}"
             sleep 10
           done
+          if anonymous_pull; then
+            echo "ghcr.io/${OWNER}/${pkg}:${tag} is public"
+            exit 0
+          fi
+          echo "Package is still private. Set it to Public at https://github.com/users/${OWNER}/packages/container/package/${pkg}/settings"
           exit 1
       - name: Bump image tag in values-cluster.yaml
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -248,9 +248,12 @@ jobs:
           set -u
           short="sha-${GITHUB_SHA::7}"
           ref="ghcr.io/${OWNER}/shturval-alert-wall-addon:${short}"
-          oras push "$ref" \
-            pack/shturval-alert-wall.crx:application/octet-stream \
-            pack/shturval-alert-wall.xpi:application/octet-stream
+          (
+            cd pack
+            oras push "$ref" \
+              shturval-alert-wall.crx:application/octet-stream \
+              shturval-alert-wall.xpi:application/octet-stream
+          )
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
             oras tag "$ref" latest
           fi

@@ -28,7 +28,7 @@ type Server struct {
 func (s *Server) Handler() http.Handler {
 	m := http.NewServeMux()
 	m.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, 200, map[string]string{"status": "ok"})
+		writeJSON(w, 200, map[string]string{"status": "ok", "service": "shturval-alert-wall"})
 	})
 	m.HandleFunc("GET /api/snapshot", s.snapshot)
 	m.HandleFunc("GET /api/stream", s.stream)

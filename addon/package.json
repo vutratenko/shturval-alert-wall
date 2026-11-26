@@ -1,0 +1,15 @@
+{
+  "name": "shturval-alert-wall-addon",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.22",
+    "typescript": "7.0.2",
+    "vite": "8.2.1",
+    "vitest": "^3.2.4"
+  }
+}

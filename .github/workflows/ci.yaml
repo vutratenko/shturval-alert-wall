@@ -11,7 +11,12 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version-file: go.mod, cache: true }
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            addon/package-lock.json
       - run: npm ci
         working-directory: web
       - run: npm test
@@ -26,6 +31,19 @@ jobs:
           test -s cmd/server/static/icons/icon-512.png
           grep -q '"start_url"' cmd/server/static/manifest.webmanifest
           grep -q 'shturval-alerts' cmd/server/static/sw.js
+      - run: npm ci
+        working-directory: addon
+      - run: npm test
+        working-directory: addon
+      - run: npm run build
+        working-directory: addon
+      - name: Check addon build artifacts
+        run: |
+          test -s addon/dist/manifest.json
+          test -s addon/dist/background.js
+          test -s addon/dist/popup.html
+          test -s addon/dist/options.html
+          grep -q 'shturval-alert-wall@sion2k.ru' addon/dist/manifest.json
       - run: go test -race ./...
       - run: go vet ./...
   helm:

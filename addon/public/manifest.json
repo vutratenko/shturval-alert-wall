@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Штурвал — алерты",
+  "version": "0.1.0",
+  "description": "Бейдж и уведомления стены алертов Штурвала",
+  "permissions": ["storage", "alarms", "notifications"],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Штурвал — алерты",
+    "default_icon": {
+      "192": "icons/icon-192.png"
+    }
+  },
+  "icons": {
+    "192": "icons/icon-192.png",
+    "512": "icons/icon-512.png"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "shturval-alert-wall@sion2k.ru",
+      "strict_min_version": "128.0"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Стены Штурвала</title>
+  </head>
+  <body class="options">
+    <main>
+      <h1>Стены Штурвала</h1>
+      <p class="lead">Каждая стена — отдельная инсталляция. Браузер спросит доступ только к её адресу.</p>
+      <form id="add">
+        <label>Название <input name="label" required autocomplete="off" /></label>
+        <label>Адрес <input name="url" type="url" required placeholder="https://alerts.example.com/wall" /></label>
+        <button type="submit">Добавить</button>
+        <p id="error" role="alert"></p>
+      </form>
+      <ul id="list"></ul>
+    </main>
+    <script type="module" src="./src/options.ts"></script>
+  </body>
+</html>

@@ -1,5 +1,8 @@
 bin/
 web/node_modules/
+addon/node_modules/
+addon/dist/
+addon/tsconfig.tsbuildinfo
 cmd/server/static/assets/
 cmd/server/static/index.html
 !cmd/server/static/.gitkeep

@@ -1,4 +1,6 @@
 .git
 web/node_modules
+addon/node_modules
+addon/dist
 bin
 .tmp

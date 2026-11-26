@@ -3,6 +3,8 @@ IMAGE ?= registry.sion2k.ru/shturval/shturval-alert-wall:latest
 test:
 	cd web && npm install && npm test
 	cd web && npm run build
+	cd addon && npm install && npm test
+	cd addon && npm run build
 	go test ./...
 lint:
 	go vet ./...

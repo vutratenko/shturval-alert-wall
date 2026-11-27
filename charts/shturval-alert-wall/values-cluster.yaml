@@ -7,6 +7,7 @@ sources:
   vmselectUrl: http://shturval-monitoring-vmselect.victoria-metrics.svc:8481/select/0/prometheus
 rbac:
   clusterRole: true
+# Set auth.enabled to false to open the wall without Shturval OIDC. Discovery and ClusterRole stay on.
 auth:
   enabled: true
   redirectUrl: https://alerts.sion2k-cluster.sion2k.ru/oauth2/callback
